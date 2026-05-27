@@ -1,0 +1,135 @@
+@import "tailwindcss";
+
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300;1,9..40,400&family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  --bg-base: #0a0d14;
+  --bg-surface: #111520;
+  --bg-elevated: #161b28;
+  --bg-card: #1a2035;
+  --bg-card-hover: #1f2640;
+  --border: #232b3e;
+  --border-light: #2a3450;
+  --text-primary: #e8ecf5;
+  --text-secondary: #7d8ba8;
+  --text-muted: #4a566e;
+  --accent-green: #00d68f;
+  --accent-green-dim: #00d68f20;
+  --accent-red: #ff4757;
+  --accent-red-dim: #ff475720;
+  --accent-blue: #4a9eff;
+  --accent-blue-dim: #4a9eff20;
+  --accent-purple: #a855f7;
+  --accent-purple-dim: #a855f720;
+  --accent-amber: #f59e0b;
+  --accent-amber-dim: #f59e0b20;
+}
+
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+h1, h2, h3 {
+  font-family: 'Syne', sans-serif;
+}
+
+.mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-surface);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-light);
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
+
+/* Animations */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(0, 214, 143, 0.15); }
+  50% { box-shadow: 0 0 0 8px rgba(0, 214, 143, 0); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -1000px 0; }
+  100% { background-position: 1000px 0; }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.4s ease forwards;
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease forwards;
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-elevated) 50%, var(--bg-card) 75%);
+  background-size: 1000px 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* Glass morphism card */
+.glass-card {
+  background: rgba(26, 32, 53, 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(135deg, #00d68f, #4a9eff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Transitions */
+.v-enter-active, .v-leave-active {
+  transition: all 0.3s ease;
+}
+.v-enter-from, .v-leave-to {
+  opacity: 0;
+  transform: translateY(-8px);
+}
+
+.slide-enter-active, .slide-leave-active {
+  transition: all 0.3s ease;
+}
+.slide-enter-from {
+  opacity: 0;
+  transform: translateX(-20px);
+}
+.slide-leave-to {
+  opacity: 0;
+  transform: translateX(20px);
+}
