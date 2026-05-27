@@ -131,7 +131,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive } from 'vue'
+import {
+  ref,
+  computed,
+  reactive,
+  watch,
+  onMounted
+} from 'vue'
 import AppLayout from '@/layouts/AppLayout.vue'
 import AccountCard from '@/components/cards/AccountCard.vue'
 import { useFinanceStore } from '@/stores/finance'
@@ -139,6 +145,11 @@ import { formatCurrency } from '@/utils/formatters'
 import type { Account } from '@/interfaces'
 
 const store = useFinanceStore()
+
+onMounted(async () => {
+  await store.loadAccounts()
+})
+
 const showModalBanks = ref(false)
 const editAccount = ref<Account | null>(null)
 
@@ -180,7 +191,6 @@ function save() {
 }
 
 // Populate form when editing
-import { watch } from 'vue'
 watch(editAccount, (acc) => {
   if (acc) Object.assign(form, acc)
 })

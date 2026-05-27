@@ -121,7 +121,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import {
+  ref,
+  computed,
+  onMounted
+} from 'vue'
 import AppLayout from '@/layouts/AppLayout.vue'
 import TransactionModal from '@/components/modals/TransactionModal.vue'
 import { useFinanceStore } from '@/stores/finance'
@@ -140,6 +144,15 @@ const sortDir = ref<'asc' | 'desc'>('desc')
 const page = ref(1)
 const perPage = 15
 
+onMounted(async () => {
+
+  await Promise.all([
+    store.loadAccounts(),
+    store.loadTransactions()
+  ])
+
+})
+
 function getCatColor(id: string) { return store.getCategoryById(id)?.color || '#6b7280' }
 function getCatIcon(id: string) { return store.getCategoryById(id)?.icon || '📦' }
 function getCatName(id: string) { return store.getCategoryById(id)?.name || 'Otro' }
@@ -151,22 +164,67 @@ function sort(field: 'date' | 'amount') {
 }
 
 const filtered = computed(() => {
-  let txs = store.monthTransactions
+
+  let txs = [...store.monthTransactions]
+
   if (search.value) {
+
     const s = search.value.toLowerCase()
+
     txs = txs.filter(t =>
-      t.description.toLowerCase().includes(s) ||
-      getCatName(t.category).toLowerCase().includes(s)
+
+      (t.description || '')
+        .toLowerCase()
+        .includes(s)
+
+      ||
+
+      getCatName(t.category)
+        .toLowerCase()
+        .includes(s)
     )
   }
-  if (filterType.value) txs = txs.filter(t => t.type === filterType.value)
-  if (filterCategory.value) txs = txs.filter(t => t.category === filterCategory.value)
-  if (filterAccount.value) txs = txs.filter(t => t.accountId === filterAccount.value)
+
+  if (filterType.value) {
+
+    txs = txs.filter(
+      t => t.type === filterType.value
+    )
+  }
+
+  if (filterCategory.value) {
+
+    txs = txs.filter(
+      t => t.category === filterCategory.value
+    )
+  }
+
+  if (filterAccount.value) {
+
+    txs = txs.filter(
+      t => t.accountId === filterAccount.value
+    )
+  }
 
   return [...txs].sort((a, b) => {
-    const mult = sortDir.value === 'asc' ? 1 : -1
-    if (sortField.value === 'date') return a.date.localeCompare(b.date) * mult
-    return (a.amount - b.amount) * mult
+
+    const mult =
+      sortDir.value === 'asc'
+        ? 1
+        : -1
+
+    if (sortField.value === 'date') {
+
+      return (
+        a.date.localeCompare(b.date)
+        * mult
+      )
+    }
+
+    return (
+      (a.amount - b.amount)
+      * mult
+    )
   })
 })
 

@@ -1,232 +1,693 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { Account, Transaction, Category, Paycheck, Budget } from '@/interfaces'
-import { mockAccounts, mockCategories, mockTransactions, mockPaychecks, mockBudgets } from '@/utils/mockData'
-import { generateId, getCurrentMonth, getMonthRange } from '@/utils/formatters'
 
-const STORAGE_KEY = 'financeapp_data'
+import type {
+  Account,
+  Transaction,
+  Category,
+  Paycheck,
+  Budget
+} from '@/interfaces'
 
-function loadFromStorage<T>(key: string, fallback: T): T {
-  try {
-    const stored = localStorage.getItem(`${STORAGE_KEY}_${key}`)
-    return stored ? JSON.parse(stored) : fallback
-  } catch {
-    return fallback
-  }
-}
+import {
+  getCurrentMonth,
+  getMonthRange
+} from '@/utils/formatters'
 
-function saveToStorage<T>(key: string, data: T): void {
-  try {
-    localStorage.setItem(`${STORAGE_KEY}_${key}`, JSON.stringify(data))
-  } catch { /* */ }
-}
+import {
+  getAccountsService,
+  createAccountService,
+  updateAccountService,
+  deleteAccountService
+} from '@/services/account.service'
+
+import {
+  getTransactionsService,
+  createTransactionService,
+  updateTransactionService,
+  deleteTransactionService
+} from '@/services/transaction.service'
 
 export const useFinanceStore = defineStore('finance', () => {
-  const accounts = ref<Account[]>(loadFromStorage('accounts', mockAccounts))
-  const transactions = ref<Transaction[]>(loadFromStorage('transactions', mockTransactions))
-  const categories = ref<Category[]>(loadFromStorage('categories', mockCategories))
-  const paychecks = ref<Paycheck[]>(loadFromStorage('paychecks', mockPaychecks))
-  const budgets = ref<Budget[]>(loadFromStorage('budgets', mockBudgets))
-  const selectedMonth = ref<string>(getCurrentMonth())
 
-  // Persist changes
-  function persist() {
-    saveToStorage('accounts', accounts.value)
-    saveToStorage('transactions', transactions.value)
-    saveToStorage('categories', categories.value)
-    saveToStorage('paychecks', paychecks.value)
-    saveToStorage('budgets', budgets.value)
+  // =========================================
+  // STATE
+  // =========================================
+  const defaultCategories: Category[] = [
+  {
+    id: 'salary',
+    name: 'Salario',
+    color: '#22c55e',
+    icon: '💼',
+    type: 'income'
+  },
+  {
+    id: 'freelance',
+    name: 'Freelance',
+    color: '#06b6d4',
+    icon: '🧑‍💻',
+    type: 'income'
+  },
+  {
+    id: 'food',
+    name: 'Comida',
+    color: '#f97316',
+    icon: '🍔',
+    type: 'expense'
+  },
+  {
+    id: 'transport',
+    name: 'Transporte',
+    color: '#3b82f6',
+    icon: '🚗',
+    type: 'expense'
+  },
+  {
+    id: 'shopping',
+    name: 'Compras',
+    color: '#ec4899',
+    icon: '🛍️',
+    type: 'expense'
+  },
+  {
+    id: 'services',
+    name: 'Servicios',
+    color: '#a855f7',
+    icon: '📄',
+    type: 'expense'
+  },
+  {
+    id: 'entertainment',
+    name: 'Entretenimiento',
+    color: '#eab308',
+    icon: '🎮',
+    type: 'expense'
+  },
+  {
+    id: 'health',
+    name: 'Salud',
+    color: '#ef4444',
+    icon: '🏥',
+    type: 'expense'
+  },
+  {
+    id: 'education',
+    name: 'Educación',
+    color: '#14b8a6',
+    icon: '📚',
+    type: 'expense'
+  },
+  {
+    id: 'other',
+    name: 'Otros',
+    color: '#6b7280',
+    icon: '📦',
+    type: 'both'
+  }
+]
+
+  const loading = ref(false)
+
+  const accounts = ref<Account[]>([])
+  const transactions = ref<Transaction[]>([])
+  const categories = ref<Category[]>(defaultCategories)
+  const paychecks = ref<Paycheck[]>([])
+  const budgets = ref<Budget[]>([])
+
+  const selectedMonth = ref<string>(
+    getCurrentMonth()
+  )
+
+  
+
+  // =========================================
+  // LOADERS
+  // =========================================
+
+  async function loadAccounts() {
+
+    try {
+
+      loading.value = true
+
+      accounts.value = await getAccountsService()
+
+    } catch (error) {
+
+      console.error(
+        'Error loading accounts',
+        error
+      )
+
+    } finally {
+
+      loading.value = false
+
+    }
   }
 
-  // Filtered transactions for selected month
+  async function loadTransactions() {
+
+  try {
+
+    loading.value = true
+
+    transactions.value =
+      await getTransactionsService()
+
+  } catch (error) {
+
+    console.error(
+      'Error loading transactions',
+      error
+    )
+
+  } finally {
+
+    loading.value = false
+
+  }
+}
+
+  // =========================================
+  // COMPUTED
+  // =========================================
+
   const monthTransactions = computed(() => {
-    const { start, end } = getMonthRange(selectedMonth.value)
-    return transactions.value.filter(t => t.date >= start && t.date <= end)
+
+    const {
+      start,
+      end
+    } = getMonthRange(selectedMonth.value)
+
+    return transactions.value.filter(
+      t => t.date >= start && t.date <= end
+    )
   })
 
   const monthIncome = computed(() =>
+
     monthTransactions.value
       .filter(t => t.type === 'income')
       .reduce((sum, t) => sum + t.amount, 0)
+
   )
 
   const monthExpenses = computed(() =>
+
     monthTransactions.value
       .filter(t => t.type === 'expense')
       .reduce((sum, t) => sum + t.amount, 0)
+
   )
 
   const totalBalance = computed(() =>
+
     accounts.value
       .filter(a => a.type !== 'credit')
       .reduce((sum, a) => sum + a.balance, 0)
+
   )
 
   const totalDebt = computed(() =>
+
     accounts.value
       .filter(a => a.type === 'credit')
-      .reduce((sum, a) => sum + (a.usedCredit || 0), 0)
+      .reduce(
+        (sum, a) => sum + (a.usedCredit || 0),
+        0
+      )
+
   )
 
   const availableCredit = computed(() =>
+
     accounts.value
       .filter(a => a.type === 'credit')
-      .reduce((sum, a) => sum + ((a.creditLimit || 0) - (a.usedCredit || 0)), 0)
+      .reduce((sum, a) => {
+
+        return sum + (
+          (a.creditLimit || 0) -
+          (a.usedCredit || 0)
+        )
+
+      }, 0)
+
   )
 
-  const savings = computed(() => totalBalance.value - monthExpenses.value)
-  const remaining = computed(() => monthIncome.value - monthExpenses.value)
+  const savings = computed(() =>
+    totalBalance.value - monthExpenses.value
+  )
+
+  const remaining = computed(() =>
+    monthIncome.value - monthExpenses.value
+  )
+
   const savingsRate = computed(() =>
-    monthIncome.value > 0 ? (remaining.value / monthIncome.value) * 100 : 0
+
+    monthIncome.value > 0
+      ? (remaining.value / monthIncome.value) * 100
+      : 0
+
   )
 
-  // Expenses by category for the month
+  // =========================================
+  // EXPENSES BY CATEGORY
+  // =========================================
+
   const expensesByCategory = computed(() => {
+
     const map: Record<string, number> = {}
+
     monthTransactions.value
       .filter(t => t.type === 'expense')
       .forEach(t => {
-        map[t.category] = (map[t.category] || 0) + t.amount
+
+        map[t.category] =
+          (map[t.category] || 0) + t.amount
+
       })
+
     return map
   })
 
-  // Budget progress
+  // =========================================
+  // BUDGET PROGRESS
+  // =========================================
+
   const budgetProgress = computed(() => {
+
     return budgets.value
-      .filter(b => b.month === selectedMonth.value)
+      .filter(
+        b => b.month === selectedMonth.value
+      )
       .map(b => {
-        const category = categories.value.find(c => c.id === b.categoryId)
-        const spent = expensesByCategory.value[b.categoryId] || 0
+
+        const category =
+          categories.value.find(
+            c => c.id === b.categoryId
+          )
+
+        const spent =
+          expensesByCategory.value[
+            b.categoryId
+          ] || 0
+
         return {
           ...b,
           category,
           spent,
-          percentage: Math.min((spent / b.amount) * 100, 100),
+          percentage: Math.min(
+            (spent / b.amount) * 100,
+            100
+          ),
           exceeded: spent > b.amount
         }
       })
   })
 
-  // Financial health score
+  // =========================================
+  // FINANCIAL HEALTH
+  // =========================================
+
   const financialHealth = computed(() => {
+
     let score = 100
-    if (savingsRate.value < 10) score -= 30
-    else if (savingsRate.value < 20) score -= 15
-    const debtRatio = monthIncome.value > 0 ? totalDebt.value / monthIncome.value : 0
-    if (debtRatio > 0.5) score -= 25
-    else if (debtRatio > 0.3) score -= 10
-    const exceededBudgets = budgetProgress.value.filter(b => b.exceeded).length
+
+    if (savingsRate.value < 10)
+      score -= 30
+
+    else if (savingsRate.value < 20)
+      score -= 15
+
+    const debtRatio =
+      monthIncome.value > 0
+        ? totalDebt.value / monthIncome.value
+        : 0
+
+    if (debtRatio > 0.5)
+      score -= 25
+
+    else if (debtRatio > 0.3)
+      score -= 10
+
+    const exceededBudgets =
+      budgetProgress.value.filter(
+        b => b.exceeded
+      ).length
+
     score -= exceededBudgets * 5
-    return Math.max(0, Math.min(100, score))
+
+    return Math.max(
+      0,
+      Math.min(100, score)
+    )
   })
 
-  // Monthly trend (last 6 months)
+  // =========================================
+  // MONTHLY TREND
+  // =========================================
+
   const monthlyTrend = computed(() => {
-    const months: { month: string; income: number; expenses: number }[] = []
+
+    const months: {
+      month: string
+      income: number
+      expenses: number
+    }[] = []
+
     for (let i = 5; i >= 0; i--) {
+
       const d = new Date()
-      d.setMonth(d.getMonth() - i)
-      const month = d.toISOString().slice(0, 7)
-      const { start, end } = getMonthRange(month)
-      const txs = transactions.value.filter(t => t.date >= start && t.date <= end)
+
+      d.setMonth(
+        d.getMonth() - i
+      )
+
+      const month =
+        d.toISOString().slice(0, 7)
+
+      const {
+        start,
+        end
+      } = getMonthRange(month)
+
+      const txs =
+        transactions.value.filter(
+          t =>
+            t.date >= start &&
+            t.date <= end
+        )
+
       months.push({
         month,
-        income: txs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0),
-        expenses: txs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0)
+
+        income:
+          txs
+            .filter(
+              t => t.type === 'income'
+            )
+            .reduce(
+              (s, t) => s + t.amount,
+              0
+            ),
+
+        expenses:
+          txs
+            .filter(
+              t => t.type === 'expense'
+            )
+            .reduce(
+              (s, t) => s + t.amount,
+              0
+            )
       })
     }
+
     return months
   })
 
-  // CRUD operations
-  function addTransaction(tx: Omit<Transaction, 'id'>) {
-    transactions.value.unshift({ ...tx, id: generateId() })
-    persist()
-  }
+  // =========================================
+  // TRANSACTIONS
+  // =========================================
 
-  function updateTransaction(id: string, updates: Partial<Transaction>) {
-    const idx = transactions.value.findIndex(t => t.id === id)
-    if (idx !== -1) {
-      transactions.value[idx] = { ...transactions.value[idx], ...updates }
-      persist()
-    }
-  }
+  async function addTransaction(
+  tx: Omit<Transaction, 'id'>
+) {
 
-  function deleteTransaction(id: string) {
-    transactions.value = transactions.value.filter(t => t.id !== id)
-    persist()
-  }
+  try {
 
-  function addAccount(acc: Omit<Account, 'id'>) {
-    accounts.value.push({ ...acc, id: generateId() })
-    persist()
-  }
+    await createTransactionService(tx)
 
-  function updateAccount(id: string, updates: Partial<Account>) {
-    const idx = accounts.value.findIndex(a => a.id === id)
-    if (idx !== -1) {
-      accounts.value[idx] = { ...accounts.value[idx], ...updates }
-      persist()
-    }
-  }
+    await loadTransactions()
 
-  function deleteAccount(id: string) {
-    accounts.value = accounts.value.filter(a => a.id !== id)
-    persist()
-  }
+  } catch (error) {
 
-  function addCategory(cat: Omit<Category, 'id'>) {
-    categories.value.push({ ...cat, id: generateId() })
-    persist()
-  }
-
-  function addPaycheck(pay: Omit<Paycheck, 'id'>) {
-    paychecks.value.unshift({ ...pay, id: generateId() })
-    persist()
-  }
-
-  function updatePaycheck(id: string, updates: Partial<Paycheck>) {
-    const idx = paychecks.value.findIndex(p => p.id === id)
-    if (idx !== -1) {
-      paychecks.value[idx] = { ...paychecks.value[idx], ...updates }
-      persist()
-    }
-  }
-
-  function deletePaycheck(id: string) {
-    paychecks.value = paychecks.value.filter(p => p.id !== id)
-    persist()
-  }
-
-  function saveBudget(bud: Omit<Budget, 'id'>) {
-    const existing = budgets.value.findIndex(
-      b => b.categoryId === bud.categoryId && b.month === bud.month
+    console.error(
+      'Error creating transaction',
+      error
     )
-    if (existing !== -1) {
-      budgets.value[existing] = { ...budgets.value[existing], ...bud }
-    } else {
-      budgets.value.push({ ...bud, id: generateId() })
+  }
+}
+
+async function updateTransaction(
+  id: string,
+  updates: Partial<Transaction>
+) {
+
+  try {
+
+    await updateTransactionService(
+      id,
+      updates
+    )
+
+    await loadTransactions()
+
+  } catch (error) {
+
+    console.error(
+      'Error updating transaction',
+      error
+    )
+  }
+}
+
+async function deleteTransaction(
+  id: string
+) {
+
+  try {
+
+    await deleteTransactionService(id)
+
+    transactions.value =
+      transactions.value.filter(
+        t => t.id !== id
+      )
+
+  } catch (error) {
+
+    console.error(
+      'Error deleting transaction',
+      error
+    )
+  }
+}
+
+  // =========================================
+  // ACCOUNTS
+  // =========================================
+
+  async function addAccount(
+    acc: Omit<Account, 'id'>
+  ) {
+
+    try {
+
+      await createAccountService(acc)
+
+      await loadAccounts()
+
+    } catch (error) {
+
+      console.error(
+        'Error creating account',
+        error
+      )
     }
-    persist()
   }
 
-  function getCategoryById(id: string): Category | undefined {
-    return categories.value.find(c => c.id === id)
+  async function updateAccount(
+    id: string,
+    updates: Partial<Account>
+  ) {
+
+    try {
+
+      await updateAccountService(
+        id,
+        updates
+      )
+
+      await loadAccounts()
+
+    } catch (error) {
+
+      console.error(
+        'Error updating account',
+        error
+      )
+    }
   }
 
-  function getAccountById(id: string): Account | undefined {
-    return accounts.value.find(a => a.id === id)
+  async function deleteAccount(
+    id: string
+  ) {
+
+    try {
+
+      await deleteAccountService(id)
+
+      accounts.value =
+        accounts.value.filter(
+          a => a.id !== id
+        )
+
+    } catch (error) {
+
+      console.error(
+        'Error deleting account',
+        error
+      )
+    }
   }
+
+  // =========================================
+  // CATEGORIES
+  // =========================================
+
+  async function addCategory(
+    cat: Omit<Category, 'id'>
+  ) {
+
+    console.log(
+      'TODO FIREBASE CATEGORY CREATE',
+      cat
+    )
+  }
+
+  // =========================================
+  // PAYCHECKS
+  // =========================================
+
+  async function addPaycheck(
+    pay: Omit<Paycheck, 'id'>
+  ) {
+
+    console.log(
+      'TODO FIREBASE PAYCHECK CREATE',
+      pay
+    )
+  }
+
+  async function updatePaycheck(
+    id: string,
+    updates: Partial<Paycheck>
+  ) {
+
+    console.log(
+      'TODO FIREBASE PAYCHECK UPDATE',
+      id,
+      updates
+    )
+  }
+
+  async function deletePaycheck(
+    id: string
+  ) {
+
+    console.log(
+      'TODO FIREBASE PAYCHECK DELETE',
+      id
+    )
+  }
+
+  // =========================================
+  // BUDGETS
+  // =========================================
+
+  async function saveBudget(
+    bud: Omit<Budget, 'id'>
+  ) {
+
+    console.log(
+      'TODO FIREBASE BUDGET SAVE',
+      bud
+    )
+  }
+
+  // =========================================
+  // HELPERS
+  // =========================================
+
+  function getCategoryById(
+    id: string
+  ): Category | undefined {
+
+    return categories.value.find(
+      c => c.id === id
+    )
+  }
+
+  function getAccountById(
+    id: string
+  ): Account | undefined {
+
+    return accounts.value.find(
+      a => a.id === id
+    )
+  }
+
+  // =========================================
+  // RETURN
+  // =========================================
 
   return {
-    accounts, transactions, categories, paychecks, budgets, selectedMonth,
-    monthTransactions, monthIncome, monthExpenses, totalBalance, totalDebt,
-    availableCredit, savings, remaining, savingsRate, expensesByCategory,
-    budgetProgress, financialHealth, monthlyTrend,
-    addTransaction, updateTransaction, deleteTransaction,
-    addAccount, updateAccount, deleteAccount,
-    addCategory, addPaycheck, updatePaycheck, deletePaycheck,
-    saveBudget, getCategoryById, getAccountById
+
+    // STATE
+    loading,
+
+    accounts,
+    transactions,
+    categories,
+    paychecks,
+    budgets,
+    selectedMonth,
+
+    // LOADERS
+    loadAccounts,
+    loadTransactions,
+
+    // COMPUTED
+    monthTransactions,
+    monthIncome,
+    monthExpenses,
+    totalBalance,
+    totalDebt,
+    availableCredit,
+    savings,
+    remaining,
+    savingsRate,
+    expensesByCategory,
+    budgetProgress,
+    financialHealth,
+    monthlyTrend,
+
+    // TRANSACTIONS
+    addTransaction,
+    updateTransaction,
+    deleteTransaction,
+    
+
+    // ACCOUNTS
+    addAccount,
+    updateAccount,
+    deleteAccount,
+
+    // CATEGORIES
+    addCategory,
+
+    // PAYCHECKS
+    addPaycheck,
+    updatePaycheck,
+    deletePaycheck,
+
+    // BUDGETS
+    saveBudget,
+
+    // HELPERS
+    getCategoryById,
+    getAccountById
   }
 })
