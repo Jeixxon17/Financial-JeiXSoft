@@ -81,8 +81,9 @@
         </div>
       </div>
     </div>
+  </AppLayout>
 
-    <!-- Modal -->
+  <!-- Modal -->
     <Teleport to="body">
       <div class="modal-backdrop" v-if="showModal" @click.self="closeModal">
         <div class="modal">
@@ -129,7 +130,6 @@
         </div>
       </div>
     </Teleport>
-  </AppLayout>
 </template>
 
 <script setup lang="ts">

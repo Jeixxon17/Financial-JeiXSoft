@@ -132,7 +132,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import AppLayout from '@/layouts/AppLayout.vue'
 import StatCard from '@/components/cards/StatCard.vue'
 import BudgetProgress from '@/components/cards/BudgetProgress.vue'
@@ -180,6 +180,15 @@ const allAlerts = computed<Alert[]>(() => {
     list.push({ id: 200 + i, type: 'warning', icon: '💳', message: `${a.name} está al ${(((a.usedCredit||0)/(a.creditLimit||1))*100).toFixed(0)}% de su cupo.` })
   })
   return list.filter(a => !dismissedAlerts.value.includes(a.id))
+})
+
+onMounted(async () => {
+
+  await Promise.all([
+    store.loadAccounts(),
+    store.loadTransactions()
+  ])
+
 })
 
 const alerts = allAlerts

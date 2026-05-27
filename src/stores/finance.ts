@@ -629,6 +629,76 @@ async function deleteTransaction(
     )
   }
 
+
+  function calculateAccountBalance(accountId: string) {
+
+  const account = accounts.value.find(
+    a => a.id === accountId
+  )
+
+  if (!account) {
+
+    return {
+      balance: 0,
+      usedCredit: 0,
+      availableCredit: 0
+    }
+  }
+
+  const accountTransactions = transactions.value.filter(
+    t => t.accountId === accountId
+  )
+
+  // TARJETAS DE CRÉDITO
+  if (account.type === 'credit') {
+
+    let usedCredit = 0
+
+    accountTransactions.forEach(tx => {
+
+      if (tx.type === 'expense') {
+        usedCredit += tx.amount
+      }
+
+      if (tx.type === 'income') {
+        usedCredit -= tx.amount
+      }
+
+    })
+
+    if (usedCredit < 0) {
+      usedCredit = 0
+    }
+
+    return {
+      usedCredit,
+      availableCredit: (account.creditLimit || 0) - usedCredit,
+      balance: 0
+    }
+  }
+
+  // CUENTAS NORMALES
+  let balance = account.balance || 0
+
+  accountTransactions.forEach(tx => {
+
+    if (tx.type === 'income') {
+      balance += tx.amount
+    }
+
+    if (tx.type === 'expense') {
+      balance -= tx.amount
+    }
+
+  })
+
+  return {
+    balance,
+    usedCredit: 0,
+    availableCredit: 0
+  }
+}
+
   // =========================================
   // RETURN
   // =========================================
@@ -685,7 +755,7 @@ async function deleteTransaction(
 
     // BUDGETS
     saveBudget,
-
+    calculateAccountBalance,
     // HELPERS
     getCategoryById,
     getAccountById

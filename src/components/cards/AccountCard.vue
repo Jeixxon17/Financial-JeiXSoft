@@ -27,7 +27,7 @@
           />
         </div>
         <div class="progress-labels">
-          <span>{{ formatCurrency(account.usedCredit || 0) }} usado</span>
+          <span>{{ formatCurrency(calculatedData.usedCredit || 0) }} usado</span>
           <span class="used-pct" :class="usedPercent > 80 ? 'text-red' : usedPercent > 50 ? 'text-amber' : 'text-green'">
             {{ usedPercent.toFixed(0) }}%
           </span>
@@ -60,8 +60,8 @@
     <template v-else>
       <div class="balance-section">
         <span class="balance-label">Saldo disponible</span>
-        <span class="balance-amount" :class="account.balance < 0 ? 'text-red' : ''">
-          {{ formatCurrency(account.balance) }}
+        <span class="balance-amount" :class="calculatedData.balance < 0 ? 'text-red' : ''">
+          {{ formatCurrency(calculatedData.balance || 0) }}
         </span>
       </div>
     </template>
@@ -74,6 +74,7 @@
 import { computed } from 'vue'
 import type { Account } from '@/interfaces'
 import { formatCurrency } from '@/utils/formatters'
+import { useFinanceStore } from '@/stores/finance'
 
 const props = defineProps<{ account: Account }>()
 defineEmits(['edit', 'delete'])
@@ -84,12 +85,22 @@ const typeLabels: Record<string, string> = {
   savings: 'Ahorros',
   cash: 'Efectivo'
 }
-
+const store = useFinanceStore()
 const typeLabel = computed(() => typeLabels[props.account.type] || '')
-const available = computed(() => (props.account.creditLimit || 0) - (props.account.usedCredit || 0))
+const available = computed(() =>
+  calculatedData.value.availableCredit
+)
 const usedPercent = computed(() => {
+
   if (!props.account.creditLimit) return 0
-  return ((props.account.usedCredit || 0) / props.account.creditLimit) * 100
+
+  return (
+    (calculatedData.value.usedCredit / props.account.creditLimit) * 100
+  )
+})
+
+const calculatedData = computed(() => {
+  return store.calculateAccountBalance(props.account.id)
 })
 </script>
 
