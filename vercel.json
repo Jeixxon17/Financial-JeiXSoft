@@ -1,5 +1,5 @@
 {
-  "buildCommand": "npm run build",
+  "buildCommand": "npx vue-tsc -b && npx vite build",
   "outputDirectory": "dist",
   "framework": "vite",
   "rewrites": [
