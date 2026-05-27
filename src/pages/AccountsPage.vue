@@ -5,7 +5,7 @@
         <div>
           <p class="header-subtitle">Gestiona tus cuentas bancarias y tarjetas</p>
         </div>
-        <button class="btn-add" @click="showModal = true">+ Nueva cuenta</button>
+        <button class="btn-add" @click="showModalBanks = true">+ Nueva cuenta</button>
       </div>
 
       <!-- Summary -->
@@ -30,19 +30,22 @@
           v-for="acc in store.accounts"
           :key="acc.id"
           :account="acc"
-          @edit="editAccount = $event; showModal = true"
+          @edit="editAccount = $event; showModalBanks = true"
           @delete="store.deleteAccount($event)"
         />
-        <div class="add-account-card" @click="showModal = true">
+        <div class="add-account-card" @click="showModalBanks = true">
           <span class="add-icon">+</span>
           <p>Agregar cuenta</p>
         </div>
       </div>
     </div>
 
+  </AppLayout>
+
+  
     <!-- Account modal -->
-    <Teleport to="body">
-      <div class="modal-backdrop" v-if="showModal" @click.self="closeModal">
+    <Teleport to="body" v-if="showModalBanks">
+      <div class="modal-backdrop"  @click.self="closeModal">
         <div class="modal">
           <div class="modal-header">
             <h2>{{ editAccount ? 'Editar cuenta' : 'Nueva cuenta' }}</h2>
@@ -125,7 +128,6 @@
         </div>
       </div>
     </Teleport>
-  </AppLayout>
 </template>
 
 <script setup lang="ts">
@@ -137,7 +139,7 @@ import { formatCurrency } from '@/utils/formatters'
 import type { Account } from '@/interfaces'
 
 const store = useFinanceStore()
-const showModal = ref(false)
+const showModalBanks = ref(false)
 const editAccount = ref<Account | null>(null)
 
 const totalAssets = computed(() =>
@@ -162,7 +164,7 @@ const defaultForm = () => ({
 const form = reactive(defaultForm())
 
 function closeModal() {
-  showModal.value = false
+  showModalBanks.value = false
   editAccount.value = null
   Object.assign(form, defaultForm())
 }
@@ -274,7 +276,7 @@ watch(editAccount, (acc) => {
   inset: 0;
   background: rgba(0,0,0,0.7);
   backdrop-filter: blur(4px);
-  z-index: 100;
+  z-index: 200;
   display: flex;
   align-items: center;
   justify-content: center;

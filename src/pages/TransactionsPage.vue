@@ -115,8 +115,9 @@
       </div>
     </div>
 
-    <TransactionModal v-if="showModal" :transaction="editTx || undefined" @close="showModal = false; editTx = null" />
   </AppLayout>
+
+  <TransactionModal v-if="showModal" :transaction="editTx || undefined" @close="showModal = false; editTx = null" />
 </template>
 
 <script setup lang="ts">
