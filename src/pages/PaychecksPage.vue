@@ -426,17 +426,24 @@ onMounted(async () => {
   if (!store.currentPaycheck) {
 
     await store.addPaycheck({
-      label: 'Salario Principal',
-      monthlySalary: 2887696,
-      date: new Date().toISOString(),
-      description: '',
-      status: 'received',
-      spent: 0,
+  label: 'Salario Principal',
 
-      deductions: [],
+  monthlySalary: 2887696,
 
-      debts: []
-    })
+  amount: 2887696,
+
+  date: new Date().toISOString(),
+
+  description: '',
+
+  status: 'received',
+
+  spent: 0,
+
+  deductions: [],
+
+  debts: []
+})
 
     await store.loadPaychecks()
   }
@@ -509,13 +516,20 @@ async function saveItem() {
   const debts = [...(paycheck.value.debts || [])]
 
   const data = {
-    id: editingItem.value?.id || crypto.randomUUID(),
-    name: form.name,
-    amount: form.amount,
-    quincena: form.quincena,
-    category: form.category,
-    icon: form.icon
-  }
+  id: editingItem.value?.id || crypto.randomUUID(),
+
+  name: form.name,
+
+  amount: form.amount,
+
+  quincena: form.quincena,
+
+  category: form.category,
+
+  paid: false,
+
+  icon: form.icon
+}
 
   if (editingItem.value) {
 

@@ -64,39 +64,40 @@ export interface FinancialSummary {
   savingsRate: number
 }
 
-export interface PaycheckDebt {
-
+export interface PaycheckDeduction {
   id: string
-
   name: string
-
   amount: number
-
-  category: string
-
-  quincena: '15' | '30'
-
-  paid: boolean
 }
 
-export interface SalaryDeduction {
-
+export interface PaycheckDebt {
   id: string
-
   name: string
-
   amount: number
+  category: string
+  quincena: '15' | '30'
+  paid: boolean
+  icon?: string
 }
 
 export interface Paycheck {
-
   id: string
+
+  label: string
 
   monthlySalary: number
 
-  deductions: SalaryDeduction[]
+  amount: number
+
+  date: string
+
+  description: string
+
+  status: 'received' | 'pending' | 'partial'
+
+  spent: number
+
+  deductions: PaycheckDeduction[]
 
   debts: PaycheckDebt[]
-
-  createdAt?: number
 }
