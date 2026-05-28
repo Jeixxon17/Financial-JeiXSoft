@@ -266,31 +266,55 @@ export const mockTransactions: Transaction[] = [
 
 export const mockPaychecks: Paycheck[] = [
   {
-    id: 'pay-1',
-    label: 'Primera quincena mayo',
-    amount: 2500000,
-    date: `${thisMonth}-01`,
-    description: 'Quincena del 1 al 15',
+    id: '1',
+
+    label: 'Salario Principal',
+
+    monthlySalary: 2887696,
+
+    amount: 2887696,
+
+    date: '2026-01-15',
+
+    description: 'Pago mensual',
+
     status: 'received',
-    spent: 1020000
-  },
-  {
-    id: 'pay-2',
-    label: 'Segunda quincena mayo',
-    amount: 2500000,
-    date: `${thisMonth}-16`,
-    description: 'Quincena del 16 al 31',
-    status: 'received',
-    spent: 494600
-  },
-  {
-    id: 'pay-3',
-    label: 'Bono mayo',
-    amount: 300000,
-    date: `${thisMonth}-10`,
-    description: 'Bono de desempeño Q1',
-    status: 'received',
-    spent: 0
+
+    spent: 1200000,
+
+    deductions: [
+      {
+        id: 'ded-1',
+        name: 'Salud',
+        amount: 120000
+      },
+      {
+        id: 'ded-2',
+        name: 'Pensión',
+        amount: 120000
+      }
+    ],
+
+    debts: [
+      {
+        id: 'debt-1',
+        name: 'Arriendo',
+        amount: 900000,
+        category: 'Hogar',
+        quincena: '15',
+        paid: false,
+        icon: '🏠'
+      },
+      {
+        id: 'debt-2',
+        name: 'Internet',
+        amount: 120000,
+        category: 'Servicios',
+        quincena: '30',
+        paid: false,
+        icon: '🌐'
+      }
+    ]
   }
 ]
 
