@@ -6,8 +6,8 @@
     <!-- Sidebar -->
     <aside class="sidebar" :class="{ 'sidebar-open': sidebarOpen }">
       <div class="sidebar-header">
-        <div class="logo">
-          <span class="logo-text">Financial JeixSoft</span> 
+        <div class="logo w-full flex justify-center">
+          <img src="/src/assets/LogoFx.png" alt="JeixSoft Logo" class="w-12 h-12 flex items-center" />
         </div>
         <button class="sidebar-close" @click="sidebarOpen = false">✕</button>
       </div>
@@ -195,14 +195,6 @@ function nextMonth() {
   display: flex;
   align-items: center;
   gap: 10px;
-}
-
-.logo-icon {
-  font-size: 22px;
-  background: linear-gradient(135deg, var(--accent-green), var(--accent-blue));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
 }
 
 .logo-text {

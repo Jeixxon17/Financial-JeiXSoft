@@ -63,3 +63,40 @@ export interface FinancialSummary {
   availableCredit: number
   savingsRate: number
 }
+
+export interface PaycheckDebt {
+
+  id: string
+
+  name: string
+
+  amount: number
+
+  category: string
+
+  quincena: '15' | '30'
+
+  paid: boolean
+}
+
+export interface SalaryDeduction {
+
+  id: string
+
+  name: string
+
+  amount: number
+}
+
+export interface Paycheck {
+
+  id: string
+
+  monthlySalary: number
+
+  deductions: SalaryDeduction[]
+
+  debts: PaycheckDebt[]
+
+  createdAt?: number
+}
