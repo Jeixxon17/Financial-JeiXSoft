@@ -41,19 +41,47 @@
               <input v-model="form.date" type="date" />
             </div>
 
-            <div class="form-group">
-              <label>Categoría *</label>
-              <select v-model="form.category">
-                <option value="">Seleccionar...</option>
-                <option
-                  v-for="cat in filteredCategories"
-                  :key="cat.id"
-                  :value="cat.id"
-                >
-                  {{ cat.icon }} {{ cat.name }}
-                </option>
-              </select>
-            </div>
+            <div
+  v-if="form.type !== 'transfer'"
+  class="form-group"
+>
+  <label>Categoría *</label>
+
+  <select v-model="form.category">
+    <option value="">
+      Seleccionar...
+    </option>
+
+    <option
+      v-for="cat in filteredCategories"
+      :key="cat.id"
+      :value="cat.id"
+    >
+      {{ cat.icon }} {{ cat.name }}
+    </option>
+  </select>
+</div>
+
+<div
+  v-else
+  class="form-group"
+>
+  <label>Cuenta destino *</label>
+
+  <select v-model="form.targetAccountId">
+    <option value="">
+      Seleccionar...
+    </option>
+
+    <option
+      v-for="acc in destinationAccounts"
+      :key="acc.id"
+      :value="acc.id"
+    >
+      {{ acc.icon }} {{ acc.name }}
+    </option>
+  </select>
+</div>
 
             <div class="form-group">
               <label>Cuenta *</label>
@@ -127,6 +155,7 @@ const form = reactive({
   date: props.transaction?.date || new Date().toISOString().split('T')[0],
   category: props.transaction?.category || '',
   accountId: props.transaction?.accountId || '',
+  targetAccountId: '',
   description: props.transaction?.description || '',
   paymentMethod: props.transaction?.paymentMethod || 'Transferencia',
   tags: props.transaction?.tags || [] as string[]
@@ -144,6 +173,12 @@ const paymentMethods = [
   'Transferencia', 'Débito', 'Crédito', 'Efectivo', 'PSE', 'Nequi', 'Daviplata', 'QR', 'Débito automático'
 ]
 
+const destinationAccounts = computed(() =>
+  store.accounts.filter(
+    acc => acc.id !== form.accountId
+  )
+)
+
 const filteredCategories = computed(() => {
   return store.categories.filter(c =>
     c.type === 'both' ||
@@ -151,17 +186,71 @@ const filteredCategories = computed(() => {
   )
 })
 
-const isValid = computed(() =>
-  form.amount > 0 && form.category && form.accountId && form.date
-)
+const isValid = computed(() => {
+
+  if (form.type === 'transfer') {
+    return (
+      form.amount > 0 &&
+      form.accountId &&
+      form.targetAccountId &&
+      form.date
+    )
+  }
+
+  return (
+    form.amount > 0 &&
+    form.category &&
+    form.accountId &&
+    form.date
+  )
+})
 
 function parseTags() {
   form.tags = tagsInput.value.split(',').map(t => t.trim()).filter(Boolean)
 }
 
-function save() {
+async function save() {
+
   parseTags()
+
   if (!isValid.value) return
+
+  if (form.type === 'transfer') {
+
+    await store.addTransaction({
+      type: 'expense',
+      amount: form.amount,
+      date: form.date,
+      category: 'transfer',
+      accountId: form.accountId,
+      description: `Transferencia a ${
+        store.getAccountById(
+          form.targetAccountId
+        )?.name
+      }`,
+      paymentMethod: 'Transferencia',
+      tags: ['transfer']
+    })
+
+    await store.addTransaction({
+      type: 'income',
+      amount: form.amount,
+      date: form.date,
+      category: 'transfer',
+      accountId: form.targetAccountId,
+      description: `Transferencia desde ${
+        store.getAccountById(
+          form.accountId
+        )?.name
+      }`,
+      paymentMethod: 'Transferencia',
+      tags: ['transfer']
+    })
+
+    emit('close')
+    return
+  }
+
   const data = {
     type: form.type,
     amount: form.amount,
@@ -172,11 +261,16 @@ function save() {
     paymentMethod: form.paymentMethod,
     tags: form.tags
   }
+
   if (editing && props.transaction) {
-    store.updateTransaction(props.transaction.id, data)
+    await store.updateTransaction(
+      props.transaction.id,
+      data
+    )
   } else {
-    store.addTransaction(data)
+    await store.addTransaction(data)
   }
+
   emit('close')
 }
 </script>

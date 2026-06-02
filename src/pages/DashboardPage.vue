@@ -3,7 +3,12 @@
     <div class="dashboard">
       <!-- Alert banners -->
       <div class="alerts" v-if="alerts.length">
-        <div v-for="alert in alerts" :key="alert.id" class="alert-banner" :class="`alert-${alert.type}`">
+        <div
+          v-for="alert in alerts"
+          :key="alert.id"
+          class="alert-banner"
+          :class="`alert-${alert.type}`"
+        >
           <span>{{ alert.icon }}</span>
           <p>{{ alert.message }}</p>
           <button @click="dismissAlert(alert.id)">✕</button>
@@ -43,7 +48,13 @@
           :color="store.remaining >= 0 ? 'green' : 'red'"
           :delay="150"
           :badge="store.savingsRate.toFixed(0) + '% ahorro'"
-          :badge-type="store.savingsRate >= 20 ? 'success' : store.savingsRate >= 10 ? 'warning' : 'danger'"
+          :badge-type="
+            store.savingsRate >= 20
+              ? 'success'
+              : store.savingsRate >= 10
+                ? 'warning'
+                : 'danger'
+          "
         />
         <StatCard
           label="Deuda total"
@@ -74,23 +85,35 @@
         <div class="transactions-card">
           <div class="card-header">
             <h3>Movimientos recientes</h3>
-            <router-link to="/transactions" class="view-all">Ver todos →</router-link>
+            <router-link to="/transactions" class="view-all"
+              >Ver todos →</router-link
+            >
           </div>
           <div class="tx-list">
-            <div
-              v-for="tx in recentTransactions"
-              :key="tx.id"
-              class="tx-row"
-            >
-              <div class="tx-icon" :style="{ background: getCategoryColor(tx.category) + '22', color: getCategoryColor(tx.category) }">
+            <div v-for="tx in recentTransactions" :key="tx.id" class="tx-row">
+              <div
+                class="tx-icon"
+                :style="{
+                  background: getCategoryColor(tx.category) + '22',
+                  color: getCategoryColor(tx.category),
+                }"
+              >
                 {{ getCategoryIcon(tx.category) }}
               </div>
               <div class="tx-info">
-                <p class="tx-desc">{{ tx.description || getCategoryName(tx.category) }}</p>
-                <p class="tx-meta">{{ formatDate(tx.date) }} · {{ getAccountName(tx.accountId) }}</p>
+                <p class="tx-desc">
+                  {{ tx.description || getCategoryName(tx.category) }}
+                </p>
+                <p class="tx-meta">
+                  {{ formatDate(tx.date) }} · {{ getAccountName(tx.accountId) }}
+                </p>
               </div>
-              <span class="tx-amount" :class="tx.type === 'income' ? 'income' : 'expense'">
-                {{ tx.type === 'income' ? '+' : '-' }}{{ formatCurrency(tx.amount) }}
+              <span
+                class="tx-amount"
+                :class="tx.type === 'income' ? 'income' : 'expense'"
+              >
+                {{ tx.type === "income" ? "+" : "-"
+                }}{{ formatCurrency(tx.amount) }}
               </span>
             </div>
             <div class="tx-empty" v-if="!recentTransactions.length">
@@ -118,12 +141,23 @@
           >
             <span class="mini-icon">{{ acc.icon }}</span>
             <p class="mini-name">{{ acc.name }}</p>
-            <p class="mini-balance" :class="acc.type === 'credit' ? 'text-purple' : 'text-green'">
-              {{ acc.type === 'credit'
-                ? formatCurrency((acc.creditLimit || 0) - (acc.usedCredit || 0))
-                : formatCurrency(acc.balance) }}
+            <p
+              class="mini-balance"
+              :class="acc.type === 'credit' ? 'text-purple' : 'text-green'"
+            >
+              {{
+                acc.type === "credit"
+                  ? formatCurrency(
+                      store.calculateAccountBalance(acc.id).availableCredit,
+                    )
+                  : formatCurrency(
+                      store.calculateAccountBalance(acc.id).balance,
+                    )
+              }}
             </p>
-            <p class="mini-type">{{ acc.type === 'credit' ? 'disponible' : typeLabel(acc.type) }}</p>
+            <p class="mini-type">
+              {{ acc.type === "credit" ? "disponible" : typeLabel(acc.type) }}
+            </p>
           </div>
         </div>
       </div>
@@ -132,67 +166,95 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import AppLayout from '@/layouts/AppLayout.vue'
-import StatCard from '@/components/cards/StatCard.vue'
-import BudgetProgress from '@/components/cards/BudgetProgress.vue'
-import ExpenseDonut from '@/components/charts/ExpenseDonut.vue'
-import IncomeExpenseBar from '@/components/charts/IncomeExpenseBar.vue'
-import { useFinanceStore } from '@/stores/finance'
-import { formatCurrency, formatDate } from '@/utils/formatters'
+import { ref, computed, onMounted } from "vue";
+import AppLayout from "@/layouts/AppLayout.vue";
+import StatCard from "@/components/cards/StatCard.vue";
+import BudgetProgress from "@/components/cards/BudgetProgress.vue";
+import ExpenseDonut from "@/components/charts/ExpenseDonut.vue";
+import IncomeExpenseBar from "@/components/charts/IncomeExpenseBar.vue";
+import { useFinanceStore } from "@/stores/finance";
+import { formatCurrency, formatDate } from "@/utils/formatters";
+import AccountCard from "@/components/cards/AccountCard.vue";
 
-const store = useFinanceStore()
+const store = useFinanceStore();
 
-const recentTransactions = computed(() =>
-  store.monthTransactions.slice(0, 8)
-)
+const recentTransactions = computed(() => store.monthTransactions.slice(0, 8));
 
 function getCategoryColor(catId: string) {
-  return store.getCategoryById(catId)?.color || '#6b7280'
+  return store.getCategoryById(catId)?.color || "#6b7280";
 }
 function getCategoryIcon(catId: string) {
-  return store.getCategoryById(catId)?.icon || '📦'
+  return store.getCategoryById(catId)?.icon || "📦";
 }
 function getCategoryName(catId: string) {
-  return store.getCategoryById(catId)?.name || 'Otro'
+  return store.getCategoryById(catId)?.name || "Otro";
 }
 function getAccountName(accId: string) {
-  return store.getAccountById(accId)?.name || ''
+  return store.getAccountById(accId)?.name || "";
 }
 
 const typeLabels: Record<string, string> = {
-  debit: 'Débito', credit: 'Crédito', savings: 'Ahorro', cash: 'Efectivo'
+  debit: "Débito",
+  credit: "Crédito",
+  savings: "Ahorro",
+  cash: "Efectivo",
+};
+function typeLabel(type: string) {
+  return typeLabels[type] || type;
 }
-function typeLabel(type: string) { return typeLabels[type] || type }
 
-interface Alert { id: number; type: 'warning' | 'danger' | 'info'; icon: string; message: string }
+interface Alert {
+  id: number;
+  type: "warning" | "danger" | "info";
+  icon: string;
+  message: string;
+}
 
-const dismissedAlerts = ref<number[]>([])
+const dismissedAlerts = ref<number[]>([]);
 const allAlerts = computed<Alert[]>(() => {
-  const list: Alert[] = []
+  const list: Alert[] = [];
   if (store.savingsRate < 10) {
-    list.push({ id: 1, type: 'warning', icon: '⚠️', message: `Tu tasa de ahorro es del ${store.savingsRate.toFixed(1)}%. Intenta reducir gastos para mejorarla.` })
+    list.push({
+      id: 1,
+      type: "warning",
+      icon: "⚠️",
+      message: `Tu tasa de ahorro es del ${store.savingsRate.toFixed(1)}%. Intenta reducir gastos para mejorarla.`,
+    });
   }
-  store.budgetProgress.filter(b => b.exceeded).forEach((b, i) => {
-    list.push({ id: 100 + i, type: 'danger', icon: '🚨', message: `Presupuesto de ${b.category?.name} excedido en ${formatCurrency(b.spent - b.amount)}.` })
-  })
-  store.accounts.filter(a => a.type === 'credit' && ((a.usedCredit || 0) / (a.creditLimit || 1)) > 0.8).forEach((a, i) => {
-    list.push({ id: 200 + i, type: 'warning', icon: '💳', message: `${a.name} está al ${(((a.usedCredit||0)/(a.creditLimit||1))*100).toFixed(0)}% de su cupo.` })
-  })
-  return list.filter(a => !dismissedAlerts.value.includes(a.id))
-})
+  store.budgetProgress
+    .filter((b) => b.exceeded)
+    .forEach((b, i) => {
+      list.push({
+        id: 100 + i,
+        type: "danger",
+        icon: "🚨",
+        message: `Presupuesto de ${b.category?.name} excedido en ${formatCurrency(b.spent - b.amount)}.`,
+      });
+    });
+  store.accounts
+    .filter(
+      (a) =>
+        a.type === "credit" && (a.usedCredit || 0) / (a.creditLimit || 1) > 0.8,
+    )
+    .forEach((a, i) => {
+      list.push({
+        id: 200 + i,
+        type: "warning",
+        icon: "💳",
+        message: `${a.name} está al ${(((a.usedCredit || 0) / (a.creditLimit || 1)) * 100).toFixed(0)}% de su cupo.`,
+      });
+    });
+  return list.filter((a) => !dismissedAlerts.value.includes(a.id));
+});
 
 onMounted(async () => {
+  await Promise.all([store.loadAccounts(), store.loadTransactions()]);
+});
 
-  await Promise.all([
-    store.loadAccounts(),
-    store.loadTransactions()
-  ])
-
-})
-
-const alerts = allAlerts
-function dismissAlert(id: number) { dismissedAlerts.value.push(id) }
+const alerts = allAlerts;
+function dismissAlert(id: number) {
+  dismissedAlerts.value.push(id);
+}
 </script>
 
 <style scoped>
@@ -219,7 +281,9 @@ function dismissAlert(id: number) { dismissedAlerts.value.push(id) }
   animation: fadeIn 0.3s ease;
 }
 
-.alert-banner p { flex: 1; }
+.alert-banner p {
+  flex: 1;
+}
 
 .alert-warning {
   background: var(--accent-amber-dim);
@@ -257,11 +321,15 @@ function dismissAlert(id: number) { dismissedAlerts.value.push(id) }
 }
 
 @media (min-width: 640px) {
-  .kpi-grid { grid-template-columns: repeat(3, 1fr); }
+  .kpi-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 
 @media (min-width: 1280px) {
-  .kpi-grid { grid-template-columns: repeat(6, 1fr); }
+  .kpi-grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
 }
 
 /* Charts grid */
@@ -272,7 +340,9 @@ function dismissAlert(id: number) { dismissedAlerts.value.push(id) }
 }
 
 @media (min-width: 768px) {
-  .charts-grid { grid-template-columns: 2fr 1fr; }
+  .charts-grid {
+    grid-template-columns: 2fr 1fr;
+  }
 }
 
 /* Bottom grid */
@@ -283,7 +353,9 @@ function dismissAlert(id: number) { dismissedAlerts.value.push(id) }
 }
 
 @media (min-width: 768px) {
-  .bottom-grid { grid-template-columns: 3fr 2fr; }
+  .bottom-grid {
+    grid-template-columns: 3fr 2fr;
+  }
 }
 
 /* Transactions card */
@@ -314,7 +386,9 @@ function dismissAlert(id: number) { dismissedAlerts.value.push(id) }
   transition: opacity 0.2s;
 }
 
-.view-all:hover { opacity: 0.7; }
+.view-all:hover {
+  opacity: 0.7;
+}
 
 .tx-list {
   display: flex;
@@ -331,7 +405,9 @@ function dismissAlert(id: number) { dismissedAlerts.value.push(id) }
   transition: background 0.2s;
 }
 
-.tx-row:hover { background: var(--bg-elevated); }
+.tx-row:hover {
+  background: var(--bg-elevated);
+}
 
 .tx-icon {
   width: 36px;
@@ -344,7 +420,10 @@ function dismissAlert(id: number) { dismissedAlerts.value.push(id) }
   flex-shrink: 0;
 }
 
-.tx-info { flex: 1; min-width: 0; }
+.tx-info {
+  flex: 1;
+  min-width: 0;
+}
 
 .tx-desc {
   font-size: 13px;
@@ -362,14 +441,18 @@ function dismissAlert(id: number) { dismissedAlerts.value.push(id) }
 }
 
 .tx-amount {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: "JetBrains Mono", monospace;
   font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
 }
 
-.tx-amount.income { color: var(--accent-green); }
-.tx-amount.expense { color: var(--accent-red); }
+.tx-amount.income {
+  color: var(--accent-green);
+}
+.tx-amount.expense {
+  color: var(--accent-red);
+}
 
 .tx-empty {
   display: flex;
@@ -381,7 +464,10 @@ function dismissAlert(id: number) { dismissedAlerts.value.push(id) }
   font-size: 13px;
 }
 
-.tx-empty span { font-size: 32px; opacity: 0.4; }
+.tx-empty span {
+  font-size: 32px;
+  opacity: 0.4;
+}
 
 /* Accounts strip */
 .accounts-strip {
@@ -425,10 +511,14 @@ function dismissAlert(id: number) { dismissedAlerts.value.push(id) }
 
 .mini-account:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
 }
 
-.mini-icon { font-size: 20px; display: block; margin-bottom: 8px; }
+.mini-icon {
+  font-size: 20px;
+  display: block;
+  margin-bottom: 8px;
+}
 
 .mini-name {
   font-size: 12px;
@@ -438,7 +528,7 @@ function dismissAlert(id: number) { dismissedAlerts.value.push(id) }
 }
 
 .mini-balance {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: "JetBrains Mono", monospace;
   font-size: 15px;
   font-weight: 600;
   margin-bottom: 2px;
@@ -451,6 +541,10 @@ function dismissAlert(id: number) { dismissedAlerts.value.push(id) }
   letter-spacing: 0.5px;
 }
 
-.text-green { color: var(--accent-green); }
-.text-purple { color: var(--accent-purple); }
+.text-green {
+  color: var(--accent-green);
+}
+.text-purple {
+  color: var(--accent-purple);
+}
 </style>

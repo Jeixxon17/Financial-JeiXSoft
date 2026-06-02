@@ -267,29 +267,55 @@ PAYCHECKS
       .reduce((sum, t) => sum + t.amount, 0),
   );
 
-  const totalBalance = computed(() =>
-    accounts.value
-      .filter((a) => a.type !== "credit")
-      .reduce((sum, a) => sum + a.balance, 0),
-  );
+const totalBalance = computed(() =>
+  accounts.value
+    .filter((a) => a.type !== "credit")
+    .reduce((sum, a) => {
+      return (
+        sum +
+        calculateAccountBalance(a.id).balance
+      );
+    }, 0)
+);
 
-  const totalDebt = computed(() =>
-    accounts.value
-      .filter((a) => a.type === "credit")
-      .reduce((sum, a) => sum + (a.usedCredit || 0), 0),
-  );
+const totalDebt = computed(() =>
+  accounts.value
+    .filter((a) => a.type === "credit")
+    .reduce((sum, a) => {
+      return (
+        sum +
+        calculateAccountBalance(a.id).usedCredit
+      );
+    }, 0)
+);
 
-  const availableCredit = computed(() =>
-    accounts.value
-      .filter((a) => a.type === "credit")
-      .reduce((sum, a) => {
-        return sum + ((a.creditLimit || 0) - (a.usedCredit || 0));
-      }, 0),
-  );
+const availableCredit = computed(() =>
+  accounts.value
+    .filter((a) => a.type === "credit")
+    .reduce((sum, a) => {
+      return (
+        sum +
+        calculateAccountBalance(a.id).availableCredit
+      );
+    }, 0)
+);
 
   const savings = computed(() => totalBalance.value - monthExpenses.value);
 
-  const remaining = computed(() => monthIncome.value - monthExpenses.value);
+const remaining = computed(() =>
+  accounts.value
+    .filter(
+      (a) =>
+        a.type === "debit" ||
+        a.type === "cash"
+    )
+    .reduce((sum, a) => {
+      return (
+        sum +
+        calculateAccountBalance(a.id).balance
+      );
+    }, 0)
+);
 
   const savingsRate = computed(() =>
     monthIncome.value > 0 ? (remaining.value / monthIncome.value) * 100 : 0,
