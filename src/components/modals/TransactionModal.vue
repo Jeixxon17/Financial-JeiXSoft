@@ -126,8 +126,8 @@
 
         <div class="modal-footer">
           <button class="btn-cancel" @click="$emit('close')">Cancelar</button>
-          <button class="btn-save" @click="save" :disabled="!isValid">
-            {{ editing ? 'Actualizar' : 'Guardar' }}
+          <button @click="save" :disabled="!isValid || isSaving" :class="isSaving ? 'btn-save-disabled' : 'btn-save'">
+            {{ isSaving ? 'Guardando...' : editing ? 'Actualizar' : 'Guardar' }}
           </button>
         </div>
       </div>
@@ -148,7 +148,7 @@ const props = defineProps<{
 const emit = defineEmits(['close'])
 const store = useFinanceStore()
 const editing = !!props.transaction
-
+const isSaving = ref(false)
 const form = reactive({
   type: props.transaction?.type || 'expense' as 'income' | 'expense' | 'transfer',
   amount: props.transaction?.amount || 0,
@@ -211,7 +211,12 @@ function parseTags() {
 
 async function save() {
 
-  parseTags()
+  if( isSaving.value ) return
+
+  isSaving.value = true
+
+  try {
+    parseTags()
 
   if (!isValid.value) return
 
@@ -272,6 +277,10 @@ async function save() {
   }
 
   emit('close')
+  } finally {
+    isSaving.value = false
+  }
+  
 }
 </script>
 
@@ -492,6 +501,22 @@ async function save() {
   transition: all 0.2s;
   font-family: 'DM Sans', sans-serif;
   box-shadow: 0 4px 12px rgba(0, 214, 143, 0.25);
+}
+
+.btn-save-disabled{
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+  padding: 10px 24px;
+  background: linear-gradient(135deg, var(--accent-green), #00b377);
+  border: none;
+  border-radius: 10px;
+  color: #000;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: 'DM Sans', sans-serif;
+  box-shadow: 0 6px 20px rgba(0, 214, 143, 0.4);
+  transform: translateY(-1px);
 }
 
 .btn-save:hover:not(:disabled) {

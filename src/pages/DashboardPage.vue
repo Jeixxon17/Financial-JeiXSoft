@@ -334,27 +334,29 @@ function dismissAlert(id: number) {
 
 /* Charts grid */
 .charts-grid {
-  display: grid;
-  grid-template-columns: 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 16px;
 }
 
 @media (min-width: 768px) {
   .charts-grid {
+    display: grid;
     grid-template-columns: 2fr 1fr;
   }
 }
 
 /* Bottom grid */
 .bottom-grid {
-  display: grid;
-  grid-template-columns: 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 16px;
 }
 
 @media (min-width: 768px) {
   .bottom-grid {
-    grid-template-columns: 3fr 2fr;
+    display: grid;
+    grid-template-columns: 1fr 2fr;
   }
 }
 
@@ -364,6 +366,7 @@ function dismissAlert(id: number) {
   border: 1px solid var(--border);
   border-radius: 16px;
   padding: 20px;
+
 }
 
 .card-header {

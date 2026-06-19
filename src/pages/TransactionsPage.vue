@@ -228,8 +228,8 @@ const filtered = computed(() => {
   })
 })
 
-const filteredIncome = computed(() => filtered.value.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0))
-const filteredExpenses = computed(() => filtered.value.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0))
+const filteredIncome = computed(() => filtered.value.filter(t => t.type === 'income' && t.category !== 'transfer').reduce((s, t) => s + t.amount, 0))
+const filteredExpenses = computed(() => filtered.value.filter(t => t.type === 'expense' && t.category !== 'transfer').reduce((s, t) => s + t.amount, 0))
 const filteredBalance = computed(() => filteredIncome.value - filteredExpenses.value)
 const totalPages = computed(() => Math.ceil(filtered.value.length / perPage))
 const paginatedTxs = computed(() => filtered.value.slice((page.value - 1) * perPage, page.value * perPage))

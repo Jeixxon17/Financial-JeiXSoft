@@ -120,7 +120,7 @@ const formattedValue = computed(() => formatCurrency(props.value))
 }
 
 .value-text {
-  font-size: clamp(18px, 3vw, 24px);
+  font-size: clamp(15px, 2vw, 20px);
   font-weight: 600;
   color: var(--text-primary);
   letter-spacing: -0.5px;

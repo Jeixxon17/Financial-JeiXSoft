@@ -257,13 +257,13 @@ PAYCHECKS
 
   const monthIncome = computed(() =>
     monthTransactions.value
-      .filter((t) => t.type === "income")
+      .filter((t) => t.type === "income" && t.category !== "transfer")
       .reduce((sum, t) => sum + t.amount, 0),
   );
 
   const monthExpenses = computed(() =>
     monthTransactions.value
-      .filter((t) => t.type === "expense")
+      .filter((t) => t.type === "expense" && t.category !== "transfer")
       .reduce((sum, t) => sum + t.amount, 0),
   );
 
