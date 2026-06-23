@@ -73,6 +73,50 @@
         />
       </div>
 
+      <!-- Accounts quick view -->
+      <div class="accounts-strip">
+        <div class="strip-header">
+          <h3>Mis cuentas</h3>
+          <router-link to="/accounts" class="view-all">Gestionar →</router-link>
+        </div>
+        <div class="accounts-scroll relative">
+          <div
+            v-for="acc in store.accounts"
+            :key="acc.id"
+            class="mini-account"
+            :style="{ borderColor: acc.color + '44', '--acc-color': acc.color }"
+          >
+            <span class="mini-icon">{{ acc.icon }}</span>
+            <p class="mini-name">{{ acc.name }}</p>
+            <p
+              class="mini-balance"
+              :class="acc.type === 'credit' ? 'text-purple' : 'text-green'"
+            >
+              {{
+                acc.type === "credit"
+                  ? formatCurrency(
+                      store.calculateAccountBalance(acc.id).availableCredit,
+                    )
+                  : formatCurrency(
+                      store.calculateAccountBalance(acc.id).balance,
+                    )
+              }}
+            </p>
+            <p
+              v-if="acc.type === 'credit'"
+              class="text-gray-500 text-xs"
+            >
+              {{
+                formatCurrency(store.calculateAccountBalance(acc.id).usedCredit)
+              }}
+            </p>
+            <p class="mini-type">
+              {{ acc.type === "credit" ? "Credito" : typeLabel(acc.type) }}
+            </p>
+          </div>
+        </div>
+      </div>
+
       <!-- Charts row -->
       <div class="charts-grid">
         <IncomeExpenseBar />
@@ -124,42 +168,6 @@
         </div>
 
         <BudgetProgress />
-      </div>
-
-      <!-- Accounts quick view -->
-      <div class="accounts-strip">
-        <div class="strip-header">
-          <h3>Mis cuentas</h3>
-          <router-link to="/accounts" class="view-all">Gestionar →</router-link>
-        </div>
-        <div class="accounts-scroll">
-          <div
-            v-for="acc in store.accounts"
-            :key="acc.id"
-            class="mini-account"
-            :style="{ borderColor: acc.color + '44', '--acc-color': acc.color }"
-          >
-            <span class="mini-icon">{{ acc.icon }}</span>
-            <p class="mini-name">{{ acc.name }}</p>
-            <p
-              class="mini-balance"
-              :class="acc.type === 'credit' ? 'text-purple' : 'text-green'"
-            >
-              {{
-                acc.type === "credit"
-                  ? formatCurrency(
-                      store.calculateAccountBalance(acc.id).availableCredit,
-                    )
-                  : formatCurrency(
-                      store.calculateAccountBalance(acc.id).balance,
-                    )
-              }}
-            </p>
-            <p class="mini-type">
-              {{ acc.type === "credit" ? "disponible" : typeLabel(acc.type) }}
-            </p>
-          </div>
-        </div>
       </div>
     </div>
   </AppLayout>
@@ -366,7 +374,6 @@ function dismissAlert(id: number) {
   border: 1px solid var(--border);
   border-radius: 16px;
   padding: 20px;
-
 }
 
 .card-header {
@@ -531,7 +538,6 @@ function dismissAlert(id: number) {
 }
 
 .mini-balance {
-  font-family: "JetBrains Mono", monospace;
   font-size: 15px;
   font-weight: 600;
   margin-bottom: 2px;
