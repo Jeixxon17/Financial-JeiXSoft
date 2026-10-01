@@ -47,19 +47,10 @@
 >
   <label>Categoría *</label>
 
-  <select v-model="form.category">
-    <option value="">
-      Seleccionar...
-    </option>
-
-    <option
-      v-for="cat in filteredCategories"
-      :key="cat.id"
-      :value="cat.id"
-    >
-      {{ cat.icon }} {{ cat.name }}
-    </option>
-  </select>
+  <CategorySelect
+    v-model="form.category"
+    :type="form.type === 'income' ? 'income' : 'expense'"
+  />
 </div>
 
 <div
@@ -98,21 +89,64 @@
               <input v-model="form.description" type="text" placeholder="Ej: Mercado semanal..." />
             </div>
 
-            <div class="form-group">
-              <label>Método de pago</label>
-              <select v-model="form.paymentMethod">
-                <option v-for="m in paymentMethods" :key="m" :value="m">{{ m }}</option>
-              </select>
+          </div>
+
+          <!-- Credit installments -->
+          <div class="installments-box" v-if="showInstallments">
+            <div class="installments-header">
+              <span>💳 Compra a cuotas</span>
             </div>
 
-            <div class="form-group">
-              <label>Etiquetas</label>
-              <input
-                v-model="tagsInput"
-                type="text"
-                placeholder="fijo, mensual..."
-                @blur="parseTags"
-              />
+            <div class="installment-chips">
+              <button
+                v-for="n in quickInstallments"
+                :key="n"
+                type="button"
+                class="installment-chip"
+                :class="{ active: form.installments === n }"
+                @click="form.installments = n"
+              >
+                {{ n }}
+              </button>
+            </div>
+
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Número de cuotas *</label>
+                <input
+                  v-model.number="form.installments"
+                  type="number"
+                  min="1"
+                  max="48"
+                  step="1"
+                />
+              </div>
+
+              <div class="form-group">
+                <label>Interés mensual (%)</label>
+                <input
+                  v-model.number="form.interestRate"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="0"
+                />
+              </div>
+            </div>
+
+            <div class="installments-summary" v-if="form.amount > 0 && form.installments >= 1">
+              <div>
+                <span>Cuota mensual</span>
+                <strong>{{ formatCurrency(installmentAmount) }}</strong>
+              </div>
+              <div>
+                <span>Intereses</span>
+                <strong>{{ formatCurrency(totalInterest) }}</strong>
+              </div>
+              <div>
+                <span>Total a pagar</span>
+                <strong>{{ formatCurrency(totalToPay) }}</strong>
+              </div>
             </div>
           </div>
 
@@ -139,6 +173,7 @@
 import { ref, computed, reactive } from 'vue'
 import { useFinanceStore } from '@/stores/finance'
 import { formatCurrency, getCurrentMonth } from '@/utils/formatters'
+import CategorySelect from '@/components/CategorySelect.vue'
 import type { Transaction } from '@/interfaces'
 
 const props = defineProps<{
@@ -157,11 +192,9 @@ const form = reactive({
   accountId: props.transaction?.accountId || '',
   targetAccountId: '',
   description: props.transaction?.description || '',
-  paymentMethod: props.transaction?.paymentMethod || 'Transferencia',
-  tags: props.transaction?.tags || [] as string[]
+  installments: props.transaction?.installments || 1,
+  interestRate: props.transaction?.interestRate || 0
 })
-
-const tagsInput = ref(form.tags.join(', '))
 
 const types = [
   { value: 'expense', label: 'Gasto', icon: '📤' },
@@ -169,22 +202,43 @@ const types = [
   { value: 'transfer', label: 'Transferencia', icon: '↔️' }
 ]
 
-const paymentMethods = [
-  'Transferencia', 'Débito', 'Crédito', 'Efectivo', 'PSE', 'Nequi', 'Daviplata', 'QR', 'Débito automático'
-]
+// El método de pago se deduce del tipo de cuenta
+const paymentMethodByAccountType: Record<string, string> = {
+  credit: 'Crédito',
+  debit: 'Débito',
+  savings: 'Ahorros',
+  cash: 'Efectivo'
+}
+
+const quickInstallments = [1, 3, 6, 12, 24, 36]
+
+const selectedAccount = computed(() =>
+  store.getAccountById(form.accountId)
+)
+
+const showInstallments = computed(() =>
+  form.type === 'expense' && selectedAccount.value?.type === 'credit'
+)
+
+// Cuota fija (sistema francés). Sin interés: monto / cuotas
+const installmentAmount = computed(() => {
+  const n = form.installments || 1
+  const i = (form.interestRate || 0) / 100
+
+  if (i === 0) return Math.round(form.amount / n)
+
+  return Math.round((form.amount * i) / (1 - Math.pow(1 + i, -n)))
+})
+
+const totalToPay = computed(() => installmentAmount.value * (form.installments || 1))
+
+const totalInterest = computed(() => Math.max(0, totalToPay.value - form.amount))
 
 const destinationAccounts = computed(() =>
   store.accounts.filter(
     acc => acc.id !== form.accountId
   )
 )
-
-const filteredCategories = computed(() => {
-  return store.categories.filter(c =>
-    c.type === 'both' ||
-    (form.type === 'income' ? c.type === 'income' : c.type === 'expense')
-  )
-})
 
 const isValid = computed(() => {
 
@@ -201,13 +255,11 @@ const isValid = computed(() => {
     form.amount > 0 &&
     form.category &&
     form.accountId &&
-    form.date
+    form.date &&
+    (!showInstallments.value ||
+      (Number.isInteger(form.installments) && form.installments >= 1 && form.installments <= 48 && form.interestRate >= 0))
   )
 })
-
-function parseTags() {
-  form.tags = tagsInput.value.split(',').map(t => t.trim()).filter(Boolean)
-}
 
 async function save() {
 
@@ -216,8 +268,6 @@ async function save() {
   isSaving.value = true
 
   try {
-    parseTags()
-
   if (!isValid.value) return
 
   if (form.type === 'transfer') {
@@ -256,15 +306,22 @@ async function save() {
     return
   }
 
-  const data = {
+  const data: Omit<Transaction, 'id'> = {
     type: form.type,
     amount: form.amount,
     date: form.date,
     category: form.category,
     accountId: form.accountId,
     description: form.description,
-    paymentMethod: form.paymentMethod,
-    tags: form.tags
+    paymentMethod: paymentMethodByAccountType[selectedAccount.value?.type || ''] || '',
+    tags: props.transaction?.tags || []
+  }
+
+  // Firestore no acepta undefined: solo se agregan si es compra a crédito
+  if (showInstallments.value) {
+    data.installments = form.installments
+    data.interestRate = form.interestRate || 0
+    data.installmentAmount = installmentAmount.value
   }
 
   if (editing && props.transaction) {
@@ -444,6 +501,84 @@ async function save() {
 
 .amount-input input {
   padding-left: 24px;
+}
+
+.installments-box {
+  margin-top: 16px;
+  padding: 16px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.installments-header {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+}
+
+.installment-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.installment-chip {
+  min-width: 40px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.installment-chip.active {
+  border-color: var(--accent-blue);
+  background: var(--accent-blue-dim);
+  color: var(--accent-blue);
+}
+
+.installments-box .form-group input {
+  background: var(--bg-surface);
+}
+
+.installments-summary {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.installments-summary div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px;
+  background: var(--bg-surface);
+  border-radius: 8px;
+}
+
+.installments-summary span {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.installments-summary strong {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+@media (max-width: 480px) {
+  .installments-summary { grid-template-columns: 1fr; }
 }
 
 .amount-preview {

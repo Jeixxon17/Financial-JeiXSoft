@@ -118,12 +118,7 @@
             <div class="form-grid">
               <div class="form-group full">
                 <label>Categoría *</label>
-                <select v-model="form.categoryId">
-                  <option value="">Seleccionar...</option>
-                  <option v-for="cat in expenseCategories" :key="cat.id" :value="cat.id">
-                    {{ cat.icon }} {{ cat.name }}
-                  </option>
-                </select>
+                <CategorySelect v-model="form.categoryId" type="expense" />
               </div>
               <div class="form-group full">
                 <label>Monto del presupuesto *</label>
@@ -145,16 +140,13 @@
 <script setup lang="ts">
 import { ref, computed, reactive } from 'vue'
 import AppLayout from '@/layouts/AppLayout.vue'
+import CategorySelect from '@/components/CategorySelect.vue'
 import { useFinanceStore } from '@/stores/finance'
 import { formatCurrency, formatMonth } from '@/utils/formatters'
 
 const store = useFinanceStore()
 const showModal = ref(false)
 const editItem = ref<any>(null)
-
-const expenseCategories = computed(() =>
-  store.categories.filter(c => c.type === 'expense' || c.type === 'both')
-)
 
 const totalBudget = computed(() => store.budgetProgress.reduce((s, b) => s + b.amount, 0))
 const totalSpent = computed(() => store.budgetProgress.reduce((s, b) => s + b.spent, 0))

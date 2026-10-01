@@ -4,6 +4,7 @@ import {
   deleteDoc,
   doc,
   getDocs,
+  setDoc,
   updateDoc
 } from 'firebase/firestore'
 
@@ -31,6 +32,18 @@ export const createTransactionService = async (
 
   return await addDoc(
     collection(db, COLLECTION),
+    transaction
+  )
+}
+
+// Crea con un id fijo: si ya existe, la sobrescribe en vez de duplicarla
+export const setTransactionService = async (
+  id: string,
+  transaction: Omit<Transaction, 'id'>
+) => {
+
+  await setDoc(
+    doc(db, COLLECTION, id),
     transaction
   )
 }

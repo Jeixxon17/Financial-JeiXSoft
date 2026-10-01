@@ -252,6 +252,27 @@ const allAlerts = computed<Alert[]>(() => {
         message: `${a.name} está al ${(((a.usedCredit || 0) / (a.creditLimit || 1)) * 100).toFixed(0)}% de su cupo.`,
       });
     });
+  store.accounts
+    .filter((a) => a.type === "credit")
+    .forEach((a, i) => {
+      const s = store.getCreditStatement(a.id);
+      if (!s || s.isMinimumCovered || s.daysToDue === null || s.daysToDue > 5) return;
+
+      const due = s.dueDate?.toLocaleDateString("es-CO", { day: "numeric", month: "short" });
+      const when =
+        s.daysToDue < 0
+          ? `está vencido desde el ${due}`
+          : s.daysToDue === 0
+            ? "vence hoy"
+            : `vence en ${s.daysToDue} ${s.daysToDue === 1 ? "día" : "días"} (${due})`;
+
+      list.push({
+        id: 300 + i,
+        type: s.daysToDue <= 1 ? "danger" : "warning",
+        icon: "📅",
+        message: `Pago mínimo de ${a.name}: ${formatCurrency(s.minimumPayment)} ${when}.`,
+      });
+    });
   return list.filter((a) => !dismissedAlerts.value.includes(a.id));
 });
 

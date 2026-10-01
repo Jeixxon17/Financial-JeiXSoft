@@ -274,8 +274,17 @@
               <input
                 v-model="form.category"
                 type="text"
+                list="paycheck-categories"
                 placeholder="Servicios"
               />
+
+              <datalist id="paycheck-categories">
+                <option
+                  v-for="cat in expenseCategoryNames"
+                  :key="cat"
+                  :value="cat"
+                />
+              </datalist>
             </div>
 
             <div class="form-group">
@@ -412,6 +421,13 @@ const form = reactive({
   category: '',
   icon: '💳'
 })
+
+// Si se deja vacía, la obligación usa su nombre como categoría (se crea al guardar)
+const expenseCategoryNames = computed(() =>
+  store.categories
+    .filter(c => c.type === 'expense' || c.type === 'both')
+    .map(c => c.name)
+)
 
 const deductionForm = reactive({
   name: '',
@@ -552,6 +568,9 @@ async function saveItem() {
       debts
     }
   )
+
+  // La obligación también queda disponible como categoría de gasto
+  await store.ensureDebtCategory(form.category || form.name, form.icon)
 
   closeModal()
 }

@@ -14,6 +14,30 @@
 
     <!-- Credit card special display -->
     <template v-if="account.type === 'credit'">
+      <!-- Statement (like the bank app) -->
+      <div class="statement" v-if="statement?.lastCutoff">
+        <div class="statement-main">
+          <div>
+            <span class="balance-label">Pago mínimo</span>
+            <span class="balance-amount" :class="statement.isMinimumCovered ? 'text-green' : ''">
+              {{ formatCurrency(statement.minimumPayment) }}
+            </span>
+          </div>
+          <span class="due-chip" :class="dueClass">{{ dueText }}</span>
+        </div>
+
+        <div class="statement-row">
+          <div>
+            <span>Pago total</span>
+            <strong>{{ formatCurrency(calculatedData.usedCredit || 0) }}</strong>
+          </div>
+          <div>
+            <span>Fecha límite</span>
+            <strong>{{ statement.dueDate ? shortDate(statement.dueDate) : '—' }}</strong>
+          </div>
+        </div>
+      </div>
+
       <div class="credit-balance">
         <span class="balance-label">Cupo disponible</span>
         <span class="balance-amount available">{{ formatCurrency(available) }}</span>
@@ -38,17 +62,17 @@
           <span>Cupo total</span>
           <span>{{ formatCurrency(account.creditLimit || 0) }}</span>
         </div>
-        <div class="detail-item" v-if="account.cutoffDate">
+        <div class="detail-item" v-if="statement?.lastCutoff">
+          <span>Último corte</span>
+          <span>{{ shortDate(statement.lastCutoff) }}</span>
+        </div>
+        <div class="detail-item" v-if="statement?.nextCutoff">
+          <span>Próximo corte</span>
+          <span>{{ shortDate(statement.nextCutoff) }}</span>
+        </div>
+        <div class="detail-item" v-if="!account.cutoffDate">
           <span>Fecha corte</span>
-          <span>Día {{ account.cutoffDate }}</span>
-        </div>
-        <div class="detail-item" v-if="account.paymentDate">
-          <span>Fecha pago</span>
-          <span>Día {{ account.paymentDate }}</span>
-        </div>
-        <div class="detail-item highlight" v-if="account.totalToPay">
-          <span>Total a pagar</span>
-          <span class="text-red">{{ formatCurrency(account.totalToPay) }}</span>
+          <span class="text-amber">Configúrala para ver el pago mínimo</span>
         </div>
       </div>
       <div class="credit-alert" v-if="usedPercent > 70">
@@ -101,6 +125,28 @@ const usedPercent = computed(() => {
 
 const calculatedData = computed(() => {
   return store.calculateAccountBalance(props.account.id)
+})
+
+const statement = computed(() => store.getCreditStatement(props.account.id))
+
+function shortDate(d: Date) {
+  return d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' })
+}
+
+const dueText = computed(() => {
+  const s = statement.value
+  if (!s || s.daysToDue === null) return ''
+  if (s.isMinimumCovered) return '✓ Al día'
+  if (s.daysToDue < 0) return `Vencido hace ${-s.daysToDue} ${s.daysToDue === -1 ? 'día' : 'días'}`
+  if (s.daysToDue === 0) return 'Vence hoy'
+  return `Faltan ${s.daysToDue} ${s.daysToDue === 1 ? 'día' : 'días'}`
+})
+
+const dueClass = computed(() => {
+  const s = statement.value
+  if (!s || s.isMinimumCovered) return 'due-ok'
+  if (s.daysToDue !== null && s.daysToDue <= 3) return 'due-danger'
+  return 'due-warning'
 })
 </script>
 
@@ -217,6 +263,66 @@ const calculatedData = computed(() => {
 
 .balance-amount.available {
   color: var(--accent-green);
+}
+
+.statement {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.statement-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.statement-main > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.due-chip {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.due-ok { background: var(--accent-green-dim); color: var(--accent-green); }
+.due-warning { background: var(--accent-amber-dim); color: var(--accent-amber); }
+.due-danger { background: var(--accent-red-dim); color: var(--accent-red); }
+
+.statement-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.statement-row > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.statement-row span {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.statement-row strong {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
 .credit-balance {

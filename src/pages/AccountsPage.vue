@@ -147,7 +147,7 @@ import type { Account } from '@/interfaces'
 const store = useFinanceStore()
 
 onMounted(async () => {
-  await store.loadAccounts()
+  await Promise.all([store.loadAccounts(), store.loadTransactions()])
 })
 
 const showModalBanks = ref(false)

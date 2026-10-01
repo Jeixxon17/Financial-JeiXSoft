@@ -83,7 +83,13 @@
                   </span>
                 </td>
                 <td class="text-muted-sm">{{ getAccName(tx.accountId) }}</td>
-                <td class="text-muted-sm">{{ tx.paymentMethod }}</td>
+                <td class="text-muted-sm">
+                  {{ tx.paymentMethod }}
+                  <span v-if="tx.installments" class="installments-note">
+                    {{ tx.installments }} {{ tx.installments === 1 ? 'cuota' : 'cuotas' }}
+                    · {{ formatCurrency(tx.installmentAmount || 0) }}
+                  </span>
+                </td>
                 <td>
                   <span class="amount-cell" :class="tx.type">
                     {{ tx.type === 'income' ? '+' : '-' }}{{ formatCurrency(tx.amount) }}
@@ -394,6 +400,8 @@ td {
 .tx-desc { color: var(--text-primary); font-weight: 500; margin-bottom: 2px; }
 
 .tags { display: flex; gap: 4px; }
+
+.installments-note { display: block; font-size: 11px; color: var(--accent-blue); margin-top: 2px; }
 .tag {
   background: var(--bg-elevated);
   border: 1px solid var(--border);

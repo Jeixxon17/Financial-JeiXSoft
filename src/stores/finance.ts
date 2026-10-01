@@ -7,9 +7,19 @@ import type {
   Category,
   Paycheck,
   Budget,
+  RecurringExpense,
 } from "@/interfaces";
 
 import { getCurrentMonth, getMonthRange } from "@/utils/formatters";
+import { calculateCreditStatement } from "@/utils/creditStatement";
+import {
+  addDaysISO,
+  dateInMonth,
+  monthIndexOf,
+  parseISODate,
+  toISODate,
+  todayISO,
+} from "@/utils/dates";
 
 import {
   getAccountsService,
@@ -21,6 +31,7 @@ import {
 import {
   getTransactionsService,
   createTransactionService,
+  setTransactionService,
   updateTransactionService,
   deleteTransactionService,
 } from "@/services/transaction.service";
@@ -32,90 +43,140 @@ import {
   deletePaycheckService,
 } from "@/services/paychecks.service";
 
+import {
+  getRecurringExpensesService,
+  createRecurringExpenseService,
+  updateRecurringExpenseService,
+  deleteRecurringExpenseService,
+} from "@/services/recurring.service";
+
+import {
+  getCategoriesService,
+  createCategoryService,
+  setCategoryService,
+  updateCategoryService,
+  deleteCategoryService,
+} from "@/services/category.service";
+
+const DEBT_PREFIX = "debt-";
+
+const CATEGORY_COLORS = [
+  "#f43f5e",
+  "#8b5cf6",
+  "#0ea5e9",
+  "#10b981",
+  "#f59e0b",
+  "#d946ef",
+  "#84cc16",
+  "#fb7185",
+];
+
+function normalizeName(name: string): string {
+  return name
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function debtCategoryId(name: string): string {
+  return DEBT_PREFIX + normalizeName(name).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
+function colorFor(key: string): string {
+  let hash = 0;
+  for (const ch of key) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+  return CATEGORY_COLORS[hash % CATEGORY_COLORS.length];
+}
+
+// Categorías que antes venían fijas en el código. Solo se usan para migrar
+// a Firestore las que ya usan tus movimientos; ya no se muestran por defecto.
+const LEGACY_CATEGORIES: Category[] = [
+  {
+    id: "salary",
+    name: "Salario",
+    color: "#22c55e",
+    icon: "💼",
+    type: "income",
+  },
+  {
+    id: "freelance",
+    name: "Freelance",
+    color: "#06b6d4",
+    icon: "🧑‍💻",
+    type: "income",
+  },
+  {
+    id: "food",
+    name: "Comida",
+    color: "#f97316",
+    icon: "🍔",
+    type: "expense",
+  },
+  {
+    id: "transport",
+    name: "Transporte",
+    color: "#3b82f6",
+    icon: "🚗",
+    type: "expense",
+  },
+  {
+    id: "shopping",
+    name: "Compras",
+    color: "#ec4899",
+    icon: "🛍️",
+    type: "expense",
+  },
+  {
+    id: "services",
+    name: "Servicios",
+    color: "#a855f7",
+    icon: "📄",
+    type: "expense",
+  },
+  {
+    id: "entertainment",
+    name: "Entretenimiento",
+    color: "#eab308",
+    icon: "🎮",
+    type: "expense",
+  },
+  {
+    id: "health",
+    name: "Salud",
+    color: "#ef4444",
+    icon: "🏥",
+    type: "expense",
+  },
+  {
+    id: "education",
+    name: "Educación",
+    color: "#14b8a6",
+    icon: "📚",
+    type: "expense",
+  },
+  {
+    id: "other",
+    name: "Otros",
+    color: "#6b7280",
+    icon: "📦",
+    type: "both",
+  },
+];
+
 export const useFinanceStore = defineStore("finance", () => {
   // =========================================
   // STATE
   // =========================================
-  const defaultCategories: Category[] = [
-    {
-      id: "salary",
-      name: "Salario",
-      color: "#22c55e",
-      icon: "💼",
-      type: "income",
-    },
-    {
-      id: "freelance",
-      name: "Freelance",
-      color: "#06b6d4",
-      icon: "🧑‍💻",
-      type: "income",
-    },
-    {
-      id: "food",
-      name: "Comida",
-      color: "#f97316",
-      icon: "🍔",
-      type: "expense",
-    },
-    {
-      id: "transport",
-      name: "Transporte",
-      color: "#3b82f6",
-      icon: "🚗",
-      type: "expense",
-    },
-    {
-      id: "shopping",
-      name: "Compras",
-      color: "#ec4899",
-      icon: "🛍️",
-      type: "expense",
-    },
-    {
-      id: "services",
-      name: "Servicios",
-      color: "#a855f7",
-      icon: "📄",
-      type: "expense",
-    },
-    {
-      id: "entertainment",
-      name: "Entretenimiento",
-      color: "#eab308",
-      icon: "🎮",
-      type: "expense",
-    },
-    {
-      id: "health",
-      name: "Salud",
-      color: "#ef4444",
-      icon: "🏥",
-      type: "expense",
-    },
-    {
-      id: "education",
-      name: "Educación",
-      color: "#14b8a6",
-      icon: "📚",
-      type: "expense",
-    },
-    {
-      id: "other",
-      name: "Otros",
-      color: "#6b7280",
-      icon: "📦",
-      type: "both",
-    },
-  ];
 
   const loading = ref(false);
 
   const accounts = ref<Account[]>([]);
   const transactions = ref<Transaction[]>([]);
-  const categories = ref<Category[]>(defaultCategories);
+  const categories = ref<Category[]>([]);
   const paychecks = ref<Paycheck[]>([]);
   const budgets = ref<Budget[]>([]);
+  const recurringExpenses = ref<RecurringExpense[]>([]);
   const selectedMonth = ref<string>(getCurrentMonth());
 
   // =========================================
@@ -155,6 +216,14 @@ export const useFinanceStore = defineStore("finance", () => {
       console.error("Error loading paychecks", error);
     } finally {
       loading.value = false;
+    }
+  }
+
+  async function loadRecurringExpenses() {
+    try {
+      recurringExpenses.value = await getRecurringExpensesService();
+    } catch (error) {
+      console.error("Error loading recurring expenses", error);
     }
   }
 
@@ -493,11 +562,281 @@ const remaining = computed(() =>
   }
 
   // =========================================
+  // RECURRING EXPENSES
+  // =========================================
+
+  // Fechas de cobro entre `from` y `to` (inclusive)
+  function recurringOccurrences(
+    rec: RecurringExpense,
+    from: string,
+    to: string,
+  ): string[] {
+    const start = parseISODate(from);
+    const end = parseISODate(to);
+    const dates: string[] = [];
+
+    for (let idx = monthIndexOf(start); idx <= monthIndexOf(end); idx++) {
+      const occ = dateInMonth(Math.floor(idx / 12), idx % 12, rec.dayOfMonth);
+      if (occ >= start && occ <= end) dates.push(toISODate(occ));
+    }
+
+    return dates;
+  }
+
+  function nextRecurringDate(rec: RecurringExpense): string {
+    const candidates = [todayISO(), rec.startDate];
+    if (rec.lastRunDate) candidates.push(addDaysISO(rec.lastRunDate, 1));
+    const from = candidates.sort().at(-1)!;
+    const [y, m] = from.split("-").map(Number);
+    const limit = toISODate(new Date(y, m + 1, 28));
+
+    return recurringOccurrences(rec, from, limit)[0];
+  }
+
+  const recurringMonthlyTotal = computed(() =>
+    recurringExpenses.value
+      .filter((r) => r.active)
+      .reduce((sum, r) => sum + r.amount, 0),
+  );
+
+  let processingRecurring: Promise<void> | null = null;
+
+  // Genera los movimientos pendientes de cada gasto automático hasta hoy.
+  // El id del movimiento es fijo (rec_<id>_<fecha>), así nunca se duplica.
+  function processRecurringExpenses() {
+    if (processingRecurring) return processingRecurring;
+
+    processingRecurring = (async () => {
+      try {
+        const today = todayISO();
+        let created = 0;
+
+        for (const rec of recurringExpenses.value) {
+          if (!rec.active) continue;
+
+          const from = rec.lastRunDate
+            ? addDaysISO(rec.lastRunDate, 1)
+            : rec.startDate;
+
+          if (from > today) continue;
+
+          const account = getAccountById(rec.accountId);
+          const isCredit = account?.type === "credit";
+
+          for (const date of recurringOccurrences(rec, from, today)) {
+            const txId = `rec_${rec.id}_${date}`;
+            if (transactions.value.some((t) => t.id === txId)) continue;
+
+            const tx: Omit<Transaction, "id"> = {
+              type: "expense",
+              amount: rec.amount,
+              date,
+              category: rec.category,
+              accountId: rec.accountId,
+              description: rec.name,
+              paymentMethod: isCredit ? "Crédito" : "Débito automático",
+              tags: ["automático"],
+              recurringId: rec.id,
+            };
+
+            if (isCredit) {
+              tx.installments = 1;
+              tx.interestRate = 0;
+              tx.installmentAmount = rec.amount;
+            }
+
+            await setTransactionService(txId, tx);
+            created++;
+          }
+
+          await updateRecurringExpenseService(rec.id, { lastRunDate: today });
+          rec.lastRunDate = today;
+        }
+
+        if (created > 0) await loadTransactions();
+      } catch (error) {
+        console.error("Error processing recurring expenses", error);
+      } finally {
+        processingRecurring = null;
+      }
+    })();
+
+    return processingRecurring;
+  }
+
+  // Carga inicial de la app: datos, migración de categorías y gastos automáticos
+  async function initApp() {
+    await Promise.all([
+      loadAccounts(),
+      loadTransactions(),
+      loadRecurringExpenses(),
+      loadPaychecks(),
+      loadCategories(),
+    ]);
+    await migrateCategories(categories.value.length === 0);
+    await processRecurringExpenses();
+  }
+
+  async function addRecurringExpense(rec: Omit<RecurringExpense, "id">) {
+    try {
+      await createRecurringExpenseService(rec);
+      await loadRecurringExpenses();
+      await processRecurringExpenses();
+    } catch (error) {
+      console.error("Error creating recurring expense", error);
+    }
+  }
+
+  async function updateRecurringExpense(
+    id: string,
+    updates: Partial<RecurringExpense>,
+  ) {
+    try {
+      await updateRecurringExpenseService(id, updates);
+      await loadRecurringExpenses();
+      await processRecurringExpenses();
+    } catch (error) {
+      console.error("Error updating recurring expense", error);
+    }
+  }
+
+  async function deleteRecurringExpense(id: string) {
+    try {
+      await deleteRecurringExpenseService(id);
+      recurringExpenses.value = recurringExpenses.value.filter(
+        (r) => r.id !== id,
+      );
+    } catch (error) {
+      console.error("Error deleting recurring expense", error);
+    }
+  }
+
+  // =========================================
   // CATEGORIES
   // =========================================
 
-  async function addCategory(cat: Omit<Category, "id">) {
-    console.log("TODO FIREBASE CATEGORY CREATE", cat);
+  async function loadCategories() {
+    try {
+      categories.value = await getCategoriesService();
+    } catch (error) {
+      console.error("Error loading categories", error);
+    }
+  }
+
+  function findCategoryByName(name: string): Category | undefined {
+    const key = normalizeName(name);
+    return categories.value.find((c) => normalizeName(c.name) === key);
+  }
+
+  async function addCategory(cat: Omit<Category, "id">): Promise<string | null> {
+    const existing = findCategoryByName(cat.name);
+    if (existing) return existing.id;
+
+    try {
+      const id = await createCategoryService(cat);
+      categories.value.push({ ...cat, id });
+      return id;
+    } catch (error) {
+      console.error("Error creating category", error);
+      return null;
+    }
+  }
+
+  async function updateCategory(id: string, updates: Partial<Category>) {
+    try {
+      await updateCategoryService(id, updates);
+      await loadCategories();
+    } catch (error) {
+      console.error("Error updating category", error);
+    }
+  }
+
+  // Cuántos movimientos y gastos automáticos usan la categoría
+  function categoryUsage(id: string) {
+    return (
+      transactions.value.filter((t) => t.category === id).length +
+      recurringExpenses.value.filter((r) => r.category === id).length
+    );
+  }
+
+  async function deleteCategory(id: string) {
+    if (categoryUsage(id) > 0) return false;
+
+    try {
+      await deleteCategoryService(id);
+      categories.value = categories.value.filter((c) => c.id !== id);
+      return true;
+    } catch (error) {
+      console.error("Error deleting category", error);
+      return false;
+    }
+  }
+
+  // Obligación de quincena → categoría con el mismo nombre (la crea si no existe)
+  async function ensureDebtCategory(name: string, icon?: string) {
+    const clean = name.trim();
+    if (!clean || findCategoryByName(clean)) return;
+
+    const cat: Omit<Category, "id"> = {
+      name: clean,
+      icon: icon || "💳",
+      color: colorFor(normalizeName(clean)),
+      type: "expense",
+    };
+    const id = debtCategoryId(clean);
+
+    try {
+      await setCategoryService(id, cat);
+      categories.value.push({ ...cat, id });
+    } catch (error) {
+      console.error("Error creating debt category", error);
+    }
+  }
+
+  // Pasa a Firestore las categorías que los movimientos ya usan pero que no
+  // existen en la colección (antes estaban fijas en el código). La primera
+  // vez también crea las de las obligaciones de las quincenas.
+  async function migrateCategories(isFirstRun: boolean) {
+    const missing = new Set<string>();
+
+    [...transactions.value, ...recurringExpenses.value].forEach((item) => {
+      const id = item.category;
+      if (id && id !== "transfer" && !categories.value.some((c) => c.id === id)) {
+        missing.add(id);
+      }
+    });
+
+    for (const id of missing) {
+      const debtName = (currentPaycheck.value?.debts || [])
+        .map((d) => (d.category || d.name || "").trim())
+        .find((n) => n && debtCategoryId(n) === id);
+
+      const source = debtName
+        ? { name: debtName, icon: "💳", color: colorFor(normalizeName(debtName)), type: "expense" as const }
+        : getCategoryById(id);
+
+      if (!source) continue;
+
+      const data: Omit<Category, "id"> = {
+        name: source.name,
+        icon: source.icon,
+        color: source.color,
+        type: source.type,
+      };
+
+      try {
+        await setCategoryService(id, data);
+        categories.value.push({ ...data, id });
+      } catch (error) {
+        console.error("Error migrating category", id, error);
+      }
+    }
+
+    if (isFirstRun) {
+      for (const debt of currentPaycheck.value?.debts || []) {
+        await ensureDebtCategory(debt.category || debt.name, debt.icon);
+      }
+    }
   }
 
   // =========================================
@@ -513,11 +852,33 @@ const remaining = computed(() =>
   // =========================================
 
   function getCategoryById(id: string): Category | undefined {
-    return categories.value.find((c) => c.id === id);
+    const found = categories.value.find((c) => c.id === id);
+    if (found) return found;
+
+    const legacy = LEGACY_CATEGORIES.find((c) => c.id === id);
+    if (legacy) return legacy;
+    if (!id.startsWith(DEBT_PREFIX)) return undefined;
+
+    // La obligación ya no existe: se conserva el nombre para los movimientos viejos
+    const name = id.slice(DEBT_PREFIX.length).replace(/-/g, " ");
+    return {
+      id,
+      name: name.charAt(0).toUpperCase() + name.slice(1),
+      icon: "💳",
+      color: colorFor(name),
+      type: "expense",
+    };
   }
 
   function getAccountById(id: string): Account | undefined {
     return accounts.value.find((a) => a.id === id);
+  }
+
+  function getCreditStatement(accountId: string) {
+    const account = getAccountById(accountId);
+    if (!account) return null;
+
+    return calculateCreditStatement(account, transactions.value);
   }
 
   function calculateAccountBalance(accountId: string) {
@@ -593,6 +954,7 @@ const remaining = computed(() =>
     categories,
     paychecks,
     budgets,
+    recurringExpenses,
     selectedMonth,
 
     // LOADERS
@@ -627,7 +989,12 @@ const remaining = computed(() =>
     deleteAccount,
 
     // CATEGORIES
+    loadCategories,
     addCategory,
+    updateCategory,
+    deleteCategory,
+    categoryUsage,
+    ensureDebtCategory,
 
     // PAYCHECKS
     addPaycheck,
@@ -636,7 +1003,19 @@ const remaining = computed(() =>
 
     // BUDGETS
     saveBudget,
+
+    // RECURRING EXPENSES
+    loadRecurringExpenses,
+    initApp,
+    processRecurringExpenses,
+    addRecurringExpense,
+    updateRecurringExpense,
+    deleteRecurringExpense,
+    nextRecurringDate,
+    recurringMonthlyTotal,
+
     calculateAccountBalance,
+    getCreditStatement,
     // HELPERS
     getCategoryById,
     getAccountById,
