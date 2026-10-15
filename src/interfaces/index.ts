@@ -12,6 +12,19 @@ export interface Account {
   paymentDate?: number
   minimumPayment?: number
   totalToPay?: number
+  // Pago mínimo real de cada extracto, por fecha de corte (YYYY-MM-DD)
+  statementMinimums?: Record<string, number>
+  // Deuda que el banco cobra por cuotas y no está en los movimientos
+  deferredDebts?: DeferredDebt[]
+}
+
+export interface DeferredDebt {
+  id: string
+  description: string
+  amount: number
+  installments: number
+  // Fecha desde la que se factura (como la fecha de una compra)
+  date: string
 }
 
 export interface Transaction {

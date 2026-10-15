@@ -36,6 +36,11 @@
             <strong>{{ statement.dueDate ? shortDate(statement.dueDate) : '—' }}</strong>
           </div>
         </div>
+
+        <div class="statement-next" v-if="statement.nextCutoff">
+          <span>Mínimo al corte del {{ shortDate(statement.nextCutoff) }}</span>
+          <strong>{{ formatCurrency(statement.nextMinimumPayment) }}</strong>
+        </div>
       </div>
 
       <div class="credit-balance">
@@ -151,6 +156,22 @@ const dueClass = computed(() => {
 </script>
 
 <style scoped>
+.statement-next {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.statement-next strong {
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
 .account-card {
   background: var(--bg-card);
   border: 1px solid var(--border);

@@ -117,6 +117,34 @@
                   <label>Fecha de pago (día)</label>
                   <input v-model.number="form.paymentDate" type="number" min="1" max="31" placeholder="25" />
                 </div>
+                <div v-if="editAccount" class="form-group full">
+                  <label>Pago mínimo del extracto (corte {{ currentCutoffLabel }})</label>
+                  <input v-model.number="form.statementMinimum" type="number" placeholder="Lo que dice el banco" />
+                  <small class="form-hint">
+                    Si el banco cobra intereses o comisiones, escribe el mínimo real y la app ajusta la diferencia.
+                  </small>
+                </div>
+                <div v-if="editAccount" class="form-group">
+                  <label>Deuda total según el banco</label>
+                  <input v-model.number="form.reportedDebt" type="number" :placeholder="formatCurrency(currentDebt)" />
+                </div>
+                <div v-if="editAccount" class="form-group">
+                  <label>Cuotas de la diferencia</label>
+                  <input v-model.number="form.reportedDebtInstallments" type="number" min="1" placeholder="1" />
+                </div>
+                <small v-if="editAccount" class="form-hint full">
+                  La app lleva {{ formatCurrency(currentDebt) }}. Si el banco dice otra cosa, la diferencia se
+                  guarda como compra diferida y se va facturando por cuotas desde el próximo corte.
+                </small>
+                <div v-if="editAccount && form.deferredDebts.length" class="form-group full">
+                  <label>Deuda diferida</label>
+                  <div v-for="debt in form.deferredDebts" :key="debt.id" class="deferred-row">
+                    <span>{{ debt.description }} · {{ formatCurrency(debt.amount) }}</span>
+                    <input v-model.number="debt.installments" type="number" min="1" title="Cuotas" />
+                    <span class="form-hint">cuotas</span>
+                    <button type="button" class="action-btn" @click="removeDeferred(debt.id)">🗑️</button>
+                  </div>
+                </div>
               </template>
             </div>
           </div>
@@ -142,7 +170,9 @@ import AppLayout from '@/layouts/AppLayout.vue'
 import AccountCard from '@/components/cards/AccountCard.vue'
 import { useFinanceStore } from '@/stores/finance'
 import { formatCurrency } from '@/utils/formatters'
-import type { Account } from '@/interfaces'
+import type { Account, DeferredDebt } from '@/interfaces'
+import { calculateCreditStatement } from '@/utils/creditStatement'
+import { toISODate, todayISO } from '@/utils/dates'
 
 const store = useFinanceStore()
 
@@ -169,7 +199,12 @@ const defaultForm = () => ({
   creditLimit: 0,
   usedCredit: 0,
   cutoffDate: 15,
-  paymentDate: 25
+  paymentDate: 25,
+  statementMinimums: {} as Record<string, number>,
+  statementMinimum: 0,
+  deferredDebts: [] as DeferredDebt[],
+  reportedDebt: null as number | null,
+  reportedDebtInstallments: 1
 })
 
 const form = reactive(defaultForm())
@@ -180,19 +215,71 @@ function closeModal() {
   Object.assign(form, defaultForm())
 }
 
+// Último corte cerrado de la tarjeta que se está editando
+const currentCutoff = computed(() => {
+  if (!editAccount.value || form.type !== 'credit' || !form.cutoffDate) return null
+  const { lastCutoff } = calculateCreditStatement({ ...editAccount.value, cutoffDate: form.cutoffDate }, [])
+  return lastCutoff ? toISODate(lastCutoff) : null
+})
+
+const currentCutoffLabel = computed(() =>
+  currentCutoff.value ? currentCutoff.value.split('-').reverse().join('/') : ''
+)
+
+const sumDeferred = (debts: DeferredDebt[] = []) => debts.reduce((s, d) => s + d.amount, 0)
+
+// Deuda que lleva la app, con la deuda diferida tal como está en el formulario
+const currentDebt = computed(() => {
+  if (!editAccount.value) return 0
+  return (
+    store.calculateAccountBalance(editAccount.value.id).usedCredit -
+    sumDeferred(editAccount.value.deferredDebts) +
+    sumDeferred(form.deferredDebts)
+  )
+})
+
+function removeDeferred(id: string) {
+  form.deferredDebts = form.deferredDebts.filter(d => d.id !== id)
+}
+
 function save() {
   if (!form.name) return
+  const { statementMinimum, reportedDebt, reportedDebtInstallments, ...data } = form
+  const statementMinimums = { ...data.statementMinimums }
+  const deferredDebts = data.deferredDebts.map(d => ({ ...d, installments: Math.max(1, d.installments || 1) }))
+
+  const difference = reportedDebt ? Math.round(reportedDebt - currentDebt.value) : 0
+  if (difference !== 0) {
+    deferredDebts.push({
+      id: `def_${Date.now()}`,
+      description: 'Ajuste deuda total',
+      amount: difference,
+      installments: Math.max(1, reportedDebtInstallments || 1),
+      date: todayISO()
+    })
+  }
+
+  if (currentCutoff.value) {
+    if (statementMinimum > 0) statementMinimums[currentCutoff.value] = statementMinimum
+    else delete statementMinimums[currentCutoff.value]
+  }
+
   if (editAccount.value) {
-    store.updateAccount(editAccount.value.id, { ...form })
+    store.updateAccount(editAccount.value.id, { ...data, statementMinimums, deferredDebts })
   } else {
-    store.addAccount({ ...form })
+    store.addAccount({ ...data, statementMinimums, deferredDebts })
   }
   closeModal()
 }
 
 // Populate form when editing
 watch(editAccount, (acc) => {
-  if (acc) Object.assign(form, acc)
+  if (!acc) return
+  Object.assign(form, defaultForm(), acc)
+  form.deferredDebts = (acc.deferredDebts || []).map(d => ({ ...d }))
+  form.statementMinimum = currentCutoff.value
+    ? acc.statementMinimums?.[currentCutoff.value] || 0
+    : 0
 })
 </script>
 
@@ -332,6 +419,12 @@ watch(editAccount, (acc) => {
 
 .form-group { display: flex; flex-direction: column; gap: 6px; }
 .form-group.full { grid-column: 1 / -1; }
+.form-hint { font-size: 12px; color: var(--text-muted); }
+.form-hint.full { grid-column: 1 / -1; margin-top: -8px; }
+.deferred-row { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.deferred-row > span:first-child { flex: 1; }
+.deferred-row input { width: 64px; }
+.deferred-row button { background: none; border: none; cursor: pointer; font-size: 14px; }
 
 .form-group label {
   font-size: 11px;
