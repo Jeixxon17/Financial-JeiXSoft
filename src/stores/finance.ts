@@ -11,7 +11,7 @@ import type {
 } from "@/interfaces";
 
 import { getCurrentMonth, getMonthRange } from "@/utils/formatters";
-import { statementAdjustmentsUntil, calculateCreditStatement, creditTransactions } from "@/utils/creditStatement";
+import { statementAdjustmentsUntil, calculateCreditStatement, creditInterestUntil, creditTransactions } from "@/utils/creditStatement";
 import {
   addDaysISO,
   dateInMonth,
@@ -898,7 +898,9 @@ const remaining = computed(() =>
 
     // TARJETAS DE CRÉDITO (incluye la deuda diferida y los cargos del banco)
     if (account.type === "credit") {
-      let usedCredit = statementAdjustmentsUntil(account, transactions.value).debt;
+      let usedCredit =
+        statementAdjustmentsUntil(account, transactions.value).debt +
+        creditInterestUntil(account, transactions.value);
 
       creditTransactions(account, transactions.value).forEach((tx) => {
         if (tx.type === "expense") {
@@ -913,6 +915,8 @@ const remaining = computed(() =>
       if (usedCredit < 0) {
         usedCredit = 0;
       }
+
+      usedCredit = Math.round(usedCredit);
 
       return {
         usedCredit,

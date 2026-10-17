@@ -128,15 +128,25 @@
                   v-model.number="form.interestRate"
                   type="number"
                   min="0"
-                  step="0.01"
+                  step="0.0001"
                   placeholder="0"
+                  :disabled="form.installments <= 1"
+                  @input="rateTouched = true"
                 />
               </div>
             </div>
 
+            <p class="installments-hint" v-if="form.installments <= 1">
+              A 1 cuota no se cobran intereses.
+            </p>
+            <p class="installments-hint" v-else-if="form.interestRate > 0">
+              {{ form.interestRate }} % mensual ({{ annualRate.toFixed(2) }} % E.A.) sobre el saldo que se debe.
+              Si la compra es sin intereses, pon 0.
+            </p>
+
             <div class="installments-summary" v-if="form.amount > 0 && form.installments >= 1">
               <div>
-                <span>Cuota mensual</span>
+                <span>{{ form.installments > 1 && form.interestRate > 0 ? 'Primera cuota' : 'Cuota mensual' }}</span>
                 <strong>{{ formatCurrency(installmentAmount) }}</strong>
               </div>
               <div>
@@ -146,6 +156,18 @@
               <div>
                 <span>Total a pagar</span>
                 <strong>{{ formatCurrency(totalToPay) }}</strong>
+              </div>
+            </div>
+
+            <div class="schedule" v-if="form.amount > 0 && form.installments > 1 && form.interestRate > 0">
+              <div class="schedule-row schedule-head">
+                <span>Cuota</span><span>Capital</span><span>Interés</span><span>Total</span>
+              </div>
+              <div v-for="row in schedule" :key="row.number" class="schedule-row">
+                <span>{{ row.number }}/{{ schedule.length }}</span>
+                <span>{{ formatCurrency(row.capital) }}</span>
+                <span>{{ formatCurrency(row.interest) }}</span>
+                <strong>{{ formatCurrency(row.total) }}</strong>
               </div>
             </div>
           </div>
@@ -170,11 +192,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive } from 'vue'
+import { ref, computed, reactive, watch } from 'vue'
 import { useFinanceStore } from '@/stores/finance'
 import { formatCurrency, getCurrentMonth } from '@/utils/formatters'
 import CategorySelect from '@/components/CategorySelect.vue'
 import type { Transaction } from '@/interfaces'
+import { effectiveAnnualRate, installmentSchedule } from '@/utils/installments'
 
 const props = defineProps<{
   transaction?: Transaction
@@ -220,19 +243,32 @@ const showInstallments = computed(() =>
   form.type === 'expense' && selectedAccount.value?.type === 'credit'
 )
 
-// Cuota fija (sistema francés). Sin interés: monto / cuotas
-const installmentAmount = computed(() => {
-  const n = form.installments || 1
-  const i = (form.interestRate || 0) / 100
+// Al editar se respeta la tasa guardada; en compras nuevas se toma la de la tarjeta
+const rateTouched = ref(editing)
 
-  if (i === 0) return Math.round(form.amount / n)
+watch(
+  () => [form.accountId, form.installments],
+  () => {
+    if (rateTouched.value || !showInstallments.value) return
+    form.interestRate = form.installments > 1 ? selectedAccount.value?.interestRate || 0 : 0
+  }
+)
 
-  return Math.round((form.amount * i) / (1 - Math.pow(1 + i, -n)))
-})
+// Capital fijo y el interés mensual sobre el saldo pendiente (como el banco)
+const schedule = computed(() =>
+  installmentSchedule(form.amount, form.installments || 1, form.interestRate || 0)
+)
 
-const totalToPay = computed(() => installmentAmount.value * (form.installments || 1))
+// La primera cuota es la más alta: el interés va bajando con el saldo
+const installmentAmount = computed(() => Math.round(schedule.value[0]?.total || 0))
 
-const totalInterest = computed(() => Math.max(0, totalToPay.value - form.amount))
+const totalInterest = computed(() =>
+  Math.round(schedule.value.reduce((sum, row) => sum + row.interest, 0))
+)
+
+const totalToPay = computed(() => Math.round(form.amount + totalInterest.value))
+
+const annualRate = computed(() => effectiveAnnualRate(form.interestRate || 0))
 
 const destinationAccounts = computed(() =>
   store.accounts.filter(
@@ -320,7 +356,7 @@ async function save() {
   // Firestore no acepta undefined: solo se agregan si es compra a crédito
   if (showInstallments.value) {
     data.installments = form.installments
-    data.interestRate = form.interestRate || 0
+    data.interestRate = form.installments > 1 ? form.interestRate || 0 : 0
     data.installmentAmount = installmentAmount.value
   }
 
@@ -579,6 +615,41 @@ async function save() {
 
 @media (max-width: 480px) {
   .installments-summary { grid-template-columns: 1fr; }
+}
+
+.installments-hint {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.schedule {
+  margin-top: 12px;
+  max-height: 180px;
+  overflow-y: auto;
+  border-radius: 8px;
+  background: var(--bg-surface);
+  padding: 6px 10px;
+}
+
+.schedule-row {
+  display: grid;
+  grid-template-columns: 0.7fr 1fr 1fr 1fr;
+  gap: 6px;
+  padding: 4px 0;
+  font-size: 12px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-secondary, var(--text-muted));
+}
+
+.schedule-row strong { color: var(--text-primary); font-weight: 600; }
+
+.schedule-head {
+  font-family: inherit;
+  font-size: 11px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
 }
 
 .amount-preview {

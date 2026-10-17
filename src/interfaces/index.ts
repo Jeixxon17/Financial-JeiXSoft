@@ -12,6 +12,8 @@ export interface Account {
   paymentDate?: number
   minimumPayment?: number
   totalToPay?: number
+  // Interés mensual (%) de las compras a cuotas con intereses
+  interestRate?: number
   // Pago mínimo real de cada extracto, por fecha de corte (YYYY-MM-DD)
   statementMinimums?: Record<string, number>
   // Deuda que el banco cobra por cuotas y no está en los movimientos

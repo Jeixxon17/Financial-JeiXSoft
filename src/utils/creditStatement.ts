@@ -1,4 +1,5 @@
 import type { Account, Transaction } from '@/interfaces'
+import { installmentsBilled } from './installments'
 import { dateInMonth, daysBetween, monthIndexOf, parseISODate, toISODate } from './dates'
 
 export interface CreditStatement {
@@ -23,18 +24,22 @@ function lastCutoffBefore(today: Date, cutoffDay: number): Date {
   return dateInMonth(today.getFullYear(), today.getMonth() - 1, cutoffDay)
 }
 
-// Primer corte en o después de la fecha de compra
+// Primer corte después de la fecha de compra. Las compras del mismo día del
+// corte ya no alcanzan a salir en ese extracto: entran en el siguiente.
 function firstCutoffFor(purchase: Date, cutoffDay: number): Date {
   const thisMonth = dateInMonth(purchase.getFullYear(), purchase.getMonth(), cutoffDay)
-  if (purchase <= thisMonth) return thisMonth
+  if (purchase < thisMonth) return thisMonth
   return dateInMonth(purchase.getFullYear(), purchase.getMonth() + 1, cutoffDay)
 }
 
-// Lo facturado por las compras hasta el corte con índice de mes `cutoffIdx`.
-// Cada compra se factura por cuotas: la cuota k se cobra en el k-ésimo corte
-// desde la fecha de compra.
-function billedUntil(accountTxs: Transaction[], cutoffDay: number, cutoffIdx: number): number {
-  let total = 0
+// Capital e intereses facturados por las compras hasta el corte con índice de
+// mes `cutoffIdx`. La cuota k se cobra en el k-ésimo corte desde la compra.
+function billedPartsUntil(
+  accountTxs: Transaction[],
+  cutoffDay: number,
+  cutoffIdx: number
+): { capital: number; interest: number } {
+  const total = { capital: 0, interest: 0 }
 
   accountTxs.forEach(tx => {
     if (tx.type !== 'expense') return
@@ -44,13 +49,34 @@ function billedUntil(accountTxs: Transaction[], cutoffDay: number, cutoffIdx: nu
 
     if (billedCount <= 0) return
 
-    const installments = Math.max(1, tx.installments || 1)
-    const installmentAmount = tx.installmentAmount || tx.amount / installments
-
-    total += installmentAmount * Math.min(installments, billedCount)
+    const billed = installmentsBilled(tx.amount, tx.installments || 1, tx.interestRate || 0, billedCount)
+    total.capital += billed.capital
+    total.interest += billed.interest
   })
 
   return total
+}
+
+function billedUntil(accountTxs: Transaction[], cutoffDay: number, cutoffIdx: number): number {
+  const { capital, interest } = billedPartsUntil(accountTxs, cutoffDay, cutoffIdx)
+  return capital + interest
+}
+
+// Intereses de las cuotas ya facturadas (hasta el último corte cerrado).
+// Son deuda nueva: se suman a lo que se debe de la tarjeta.
+export function creditInterestUntil(
+  account: Account,
+  transactions: Transaction[],
+  today: Date = new Date()
+): number {
+  if (account.type !== 'credit' || !account.cutoffDate) return 0
+
+  const lastCutoff = lastCutoffBefore(today, account.cutoffDate)
+  return billedPartsUntil(
+    creditTransactions(account, transactions),
+    account.cutoffDate,
+    monthIndexOf(lastCutoff)
+  ).interest
 }
 
 // Movimientos de la tarjeta más la deuda diferida, que se factura como una

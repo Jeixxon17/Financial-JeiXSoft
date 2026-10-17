@@ -88,6 +88,7 @@
                   <span v-if="tx.installments" class="installments-note">
                     {{ tx.installments }} {{ tx.installments === 1 ? 'cuota' : 'cuotas' }}
                     · {{ formatCurrency(tx.installmentAmount || 0) }}
+                    <template v-if="tx.interestRate && (tx.installments || 1) > 1">· {{ tx.interestRate }}% mes</template>
                   </span>
                 </td>
                 <td>
