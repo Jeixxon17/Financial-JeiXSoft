@@ -235,6 +235,7 @@ COMPUTED
     return paychecks.value[0];
   });
 
+  // Deducciones por quincena, tal como salen en el desprendible de nómina
   const totalSalaryDeductions = computed(() => {
     return (
       currentPaycheck.value?.deductions?.reduce(
@@ -244,14 +245,16 @@ COMPUTED
     );
   });
 
-  const netSalary = computed(() => {
+  // Neto a pagar por quincena: medio salario menos las deducciones
+  const quincenaValue = computed(() => {
     return (
-      (currentPaycheck.value?.monthlySalary || 0) - totalSalaryDeductions.value
+      (currentPaycheck.value?.monthlySalary || 0) / 2 -
+      totalSalaryDeductions.value
     );
   });
 
-  const quincenaValue = computed(() => {
-    return netSalary.value / 2;
+  const netSalary = computed(() => {
+    return quincenaValue.value * 2;
   });
 
   const quincena15Debts = computed(() => {

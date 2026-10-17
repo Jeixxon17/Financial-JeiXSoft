@@ -31,14 +31,14 @@
         </div>
 
         <div class="salary-card red">
-          <span class="salary-label">📉 Deducciones</span>
+          <span class="salary-label">📉 Deducciones por quincena</span>
           <strong class="salary-value mono">
             {{ formatCurrency(totalDeductions) }}
           </strong>
         </div>
 
         <div class="salary-card green">
-          <span class="salary-label">💰 Salario real</span>
+          <span class="salary-label">💰 Salario real (mes)</span>
           <strong class="salary-value mono">
             {{ formatCurrency(netSalary) }}
           </strong>
@@ -75,16 +75,18 @@
 
             <div class="progress-bar">
               <div
-                class="progress-fill fill-blue"
+                class="progress-fill"
+                :class="balance15 < 0 ? 'fill-red' : 'fill-blue'"
                 :style="{ width: `${Math.min(quincena15Percent, 100)}%` }"
               />
             </div>
 
             <div class="progress-values">
               <span>{{ formatCurrency(quincena15Total) }}</span>
-              <strong class="green">
-                {{ formatCurrency(quincenaAmount - quincena15Total) }}
-              </strong>
+              <div class="balance" :class="balance15 < 0 ? 'red' : 'green'">
+                <small>{{ balance15 < 0 ? 'Falta conseguir' : 'Te sobra' }}</small>
+                <strong>{{ formatSigned(balance15) }}</strong>
+              </div>
             </div>
           </div>
 
@@ -157,16 +159,18 @@
 
             <div class="progress-bar">
               <div
-                class="progress-fill fill-purple"
+                class="progress-fill"
+                :class="balance30 < 0 ? 'fill-red' : 'fill-purple'"
                 :style="{ width: `${Math.min(quincena30Percent, 100)}%` }"
               />
             </div>
 
             <div class="progress-values">
               <span>{{ formatCurrency(quincena30Total) }}</span>
-              <strong class="green">
-                {{ formatCurrency(quincenaAmount - quincena30Total) }}
-              </strong>
+              <div class="balance" :class="balance30 < 0 ? 'red' : 'green'">
+                <small>{{ balance30 < 0 ? 'Falta conseguir' : 'Te sobra' }}</small>
+                <strong>{{ formatSigned(balance30) }}</strong>
+              </div>
             </div>
           </div>
 
@@ -325,7 +329,7 @@
     >
       <div class="modal">
         <div class="modal-header">
-          <h2>Nueva deducción</h2>
+          <h2>Deducciones por quincena</h2>
 
           <button @click="closeDeductionModal">✕</button>
         </div>
@@ -343,7 +347,7 @@
             </div>
 
             <div class="form-group full">
-              <label>Valor</label>
+              <label>Valor por quincena (como sale en el desprendible)</label>
 
               <input
                 v-model.number="deductionForm.amount"
@@ -488,6 +492,14 @@ const netSalary = computed(() =>
 const quincenaAmount = computed(() =>
   store.quincenaValue
 )
+
+// Lo que queda de la quincena después de las obligaciones (negativo = falta)
+const balance15 = computed(() => quincenaAmount.value - quincena15Total.value)
+const balance30 = computed(() => quincenaAmount.value - quincena30Total.value)
+
+function formatSigned(value: number) {
+  return `${value < 0 ? '-' : ''}${formatCurrency(Math.abs(value))}`
+}
 
 const quincena15 = computed(() =>
   store.quincena15Debts
@@ -816,6 +828,22 @@ function closeDeductionModal() {
   background: var(--accent-purple);
 }
 
+.fill-red {
+  background: var(--accent-red);
+}
+
+.balance {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.balance small {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
 .payments-list {
   display: flex;
   flex-direction: column;
@@ -1017,6 +1045,10 @@ function closeDeductionModal() {
 
 .green {
   color: var(--accent-green);
+}
+
+.red {
+  color: var(--accent-red);
 }
 
 .mono {
