@@ -7,7 +7,7 @@
     <aside class="sidebar" :class="{ 'sidebar-open': sidebarOpen }">
       <div class="sidebar-header">
         <div class="logo w-full flex justify-center">
-          <img src="/src/assets/LogoFx.png" alt="JeixSoft Logo" class="w-12 h-12 flex items-center" />
+          <img :src="logo" alt="JeixSoft Logo" class="w-12 h-12 flex items-center" />
         </div>
         <button class="sidebar-close" @click="sidebarOpen = false">✕</button>
       </div>
@@ -49,6 +49,12 @@
         <p class="health-text">{{ healthText }}</p>
       </div>
 
+      <!-- Seguridad -->
+      <div class="security-actions">
+        <button class="security-btn" @click="showChangePin = true; sidebarOpen = false">🔑 Cambiar PIN</button>
+        <button class="security-btn" @click="lockApp">🔒 Bloquear</button>
+      </div>
+
       <p class="text-[10px] flex items-center justify-center my-2 text-[#4a566e]">&copy; 2026 JeixSoft. Todos los derechos reservados.</p>
     </aside>
 
@@ -87,6 +93,7 @@
 
     <!-- Add Transaction Modal -->
     <TransactionModal v-if="showModal" @close="showModal = false" />
+    <ChangePinModal v-if="showChangePin" @close="showChangePin = false" />
   </div>
 </template>
 
@@ -96,12 +103,16 @@ import { useRouter, useRoute } from 'vue-router'
 import { useFinanceStore } from '@/stores/finance'
 import { formatCurrency, formatMonth, getCurrentMonth } from '@/utils/formatters'
 import TransactionModal from '@/components/modals/TransactionModal.vue'
+import ChangePinModal from '@/components/security/ChangePinModal.vue'
+import { lockApp } from '@/services/auth.service'
+import logo from '@/assets/LogoFx.png'
 
 const store = useFinanceStore()
 const router = useRouter()
 const route = useRoute()
 const sidebarOpen = ref(false)
 const showModal = ref(false)
+const showChangePin = ref(false)
 const currentMonth = getCurrentMonth()
 
 const navRoutes = router.getRoutes().filter(r => r.meta?.title)
@@ -158,6 +169,9 @@ function nextMonth() {
   top: 0;
   left: 0;
   height: 100vh;
+  height: 100dvh;
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
   z-index: 50;
   transform: translateX(-100%);
   transition: transform 0.3s ease;
@@ -173,6 +187,31 @@ function nextMonth() {
 
 .sidebar-open {
   transform: translateX(0) !important;
+}
+
+.security-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 0 12px;
+  margin-top: 8px;
+}
+
+.security-btn {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 9px 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.security-btn:hover {
+  color: var(--text-primary);
+  border-color: var(--border-light);
 }
 
 .sidebar-overlay {
@@ -509,6 +548,30 @@ function nextMonth() {
 }
 
 @media (max-width: 640px) {
-  .page-content { padding: 16px; }
+  .page-content {
+    padding: 16px;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  }
+
+  .topbar {
+    padding: 12px 16px;
+    padding-top: calc(12px + env(safe-area-inset-top));
+  }
+
+  .topbar-left {
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .page-title {
+    min-width: 0;
+  }
+
+  .page-title h1 {
+    font-size: 18px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }
 </style>

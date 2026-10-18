@@ -1,0 +1,23 @@
+rules_version = '2';
+
+// Solo el dueño (la cuenta que se crea al configurar el PIN) puede leer y
+// escribir. Copia de las reglas publicadas en Firebase Console > Firestore > Reglas.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isOwner() {
+      return request.auth != null
+        && request.auth.token.email == 'owner@financial-jeixsoft.app';
+    }
+
+    // Público solo para saber si ya hay PIN (la pantalla inicial lo necesita)
+    match /meta/security {
+      allow read: if true;
+      allow write: if isOwner();
+    }
+
+    match /{document=**} {
+      allow read, write: if isOwner();
+    }
+  }
+}

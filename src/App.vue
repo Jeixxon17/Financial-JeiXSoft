@@ -1,15 +1,51 @@
 <template>
-  <router-view />
+  <div v-if="!authState.ready" class="app-boot" />
+  <PinScreen v-else-if="!authState.unlocked" />
+  <router-view v-else />
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onBeforeUnmount, onMounted, watch } from 'vue'
 import { useFinanceStore } from '@/stores/finance'
+import PinScreen from '@/components/security/PinScreen.vue'
+import { authState, initAuth, lockApp } from '@/services/auth.service'
 
 const store = useFinanceStore()
 
-// Carga inicial: categorías, quincenas y gastos automáticos pendientes
+// Si la app queda en segundo plano más de este tiempo, se vuelve a pedir el PIN
+const AUTO_LOCK_MS = 5 * 60 * 1000
+let hiddenAt = 0
+
+// Carga inicial (categorías, quincenas y gastos automáticos pendientes),
+// solo después de ingresar el PIN: las reglas de Firestore lo exigen
+watch(
+  () => authState.unlocked,
+  unlocked => {
+    if (unlocked) store.initApp()
+  }
+)
+
+function onVisibilityChange() {
+  if (document.hidden) {
+    hiddenAt = Date.now()
+  } else if (hiddenAt && Date.now() - hiddenAt > AUTO_LOCK_MS && authState.unlocked) {
+    lockApp()
+  }
+}
+
 onMounted(() => {
-  store.initApp()
+  initAuth()
+  document.addEventListener('visibilitychange', onVisibilityChange)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('visibilitychange', onVisibilityChange)
 })
 </script>
+
+<style scoped>
+.app-boot {
+  min-height: 100vh;
+  background: var(--bg-base);
+}
+</style>

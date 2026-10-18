@@ -615,6 +615,9 @@ async function save() {
 
 @media (max-width: 480px) {
   .installments-summary { grid-template-columns: 1fr; }
+  .installment-chips { flex-wrap: nowrap; }
+  .installment-chip { flex: 1; min-width: 0; padding-left: 0; padding-right: 0; }
+  .schedule-row { gap: 4px; font-size: 11px; }
 }
 
 .installments-hint {

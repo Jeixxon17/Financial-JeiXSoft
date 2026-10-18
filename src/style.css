@@ -42,6 +42,35 @@ h1, h2, h3 {
   font-family: 'Syne', sans-serif;
 }
 
+/* Responsive: nada se sale de la pantalla */
+html,
+body {
+  overflow-x: clip;
+}
+
+img,
+svg,
+canvas,
+video {
+  max-width: 100%;
+}
+
+input,
+select,
+textarea {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* En móvil, campos de 16px: si son más pequeños el iPhone hace zoom al escribir */
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
 .mono {
   font-family: 'JetBrains Mono', monospace;
 }

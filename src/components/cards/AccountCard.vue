@@ -222,6 +222,7 @@ const dueClass = computed(() => {
 
 .acc-meta {
   flex: 1;
+  min-width: 0;
 }
 
 .acc-meta h3 {
@@ -247,6 +248,11 @@ const dueClass = computed(() => {
 }
 
 .account-card:hover .acc-actions { opacity: 1; }
+
+/* En pantallas táctiles no hay hover: las acciones siempre visibles */
+@media (hover: none) {
+  .acc-actions { opacity: 1; }
+}
 
 .action-btn {
   background: var(--bg-elevated);

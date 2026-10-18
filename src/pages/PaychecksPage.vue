@@ -754,11 +754,12 @@ function closeDeductionModal() {
 
 .quincenas-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
 }
 
 .quincena-card {
+  min-width: 0;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: 20px;
@@ -858,15 +859,30 @@ function closeDeductionModal() {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 10px;
 }
 
 .payment-left {
   display: flex;
   align-items: center;
   gap: 12px;
+  min-width: 0;
+}
+
+.payment-left > div:last-child {
+  min-width: 0;
+}
+
+.payment-name,
+.payment-category {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .payment-icon {
+  flex-shrink: 0;
   width: 42px;
   height: 42px;
   border-radius: 12px;
@@ -891,6 +907,7 @@ function closeDeductionModal() {
   display: flex;
   align-items: center;
   gap: 14px;
+  flex-shrink: 0;
 }
 
 .item-actions {
@@ -1001,7 +1018,7 @@ function closeDeductionModal() {
 
 .form-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -1023,6 +1040,8 @@ function closeDeductionModal() {
 
 .form-group input,
 .form-group select {
+  width: 100%;
+  min-width: 0;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -1072,6 +1091,54 @@ function closeDeductionModal() {
   .btn-add,
   .btn-secondary {
     flex: 1;
+  }
+}
+
+@media (max-width: 480px) {
+  .modal-body {
+    padding: 18px;
+  }
+
+  .salary-resume {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .salary-card {
+    padding: 14px;
+    border-radius: 14px;
+  }
+
+  .salary-label {
+    font-size: 11px;
+  }
+
+  .salary-value {
+    font-size: 16px;
+    overflow-wrap: anywhere;
+  }
+
+  .quincena-card {
+    padding: 16px;
+  }
+
+  .payment-item {
+    padding: 12px;
+  }
+
+  .payment-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .payment-right {
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 6px;
+  }
+
+  .payment-right strong {
+    font-size: 13px;
   }
 }
 </style>

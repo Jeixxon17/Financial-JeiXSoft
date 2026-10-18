@@ -125,6 +125,7 @@ const formattedValue = computed(() => formatCurrency(props.value))
   color: var(--text-primary);
   letter-spacing: -0.5px;
   display: block;
+  overflow-wrap: anywhere;
 }
 
 .stat-card--green .value-text { color: var(--accent-green); }

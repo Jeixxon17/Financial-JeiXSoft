@@ -113,6 +113,36 @@
           </table>
         </div>
 
+        <!-- Lista para móvil -->
+        <div class="tx-list">
+          <div v-for="tx in paginatedTxs" :key="tx.id" class="tx-item">
+            <div class="tx-item-icon" :style="{ background: getCatColor(tx.category) + '22' }">
+              {{ getCatIcon(tx.category) }}
+            </div>
+            <div class="tx-item-body">
+              <p class="tx-item-title">{{ tx.description || getCatName(tx.category) }}</p>
+              <p class="tx-item-meta">{{ formatDate(tx.date) }} · {{ getAccName(tx.accountId) }}</p>
+              <p v-if="tx.installments && tx.installments > 1" class="installments-note">
+                {{ tx.installments }} cuotas · {{ formatCurrency(tx.installmentAmount || 0) }}
+                <template v-if="tx.interestRate">· {{ tx.interestRate }}% mes</template>
+              </p>
+            </div>
+            <div class="tx-item-side">
+              <span class="amount-cell" :class="tx.type">
+                {{ tx.type === 'income' ? '+' : '-' }}{{ formatCurrency(tx.amount) }}
+              </span>
+              <div class="row-actions">
+                <button @click="editTx = tx; showModal = true" class="icon-btn">✏️</button>
+                <button @click="store.deleteTransaction(tx.id)" class="icon-btn danger">🗑️</button>
+              </div>
+            </div>
+          </div>
+          <div v-if="!filtered.length" class="empty-row">
+            <span>📭</span>
+            <p>Sin movimientos que mostrar</p>
+          </div>
+        </div>
+
         <!-- Pagination -->
         <div class="pagination" v-if="totalPages > 1">
           <button @click="page = Math.max(1, page - 1)" :disabled="page === 1">‹</button>
@@ -338,6 +368,14 @@ const paginatedTxs = computed(() => filtered.value.slice((page.value - 1) * perP
   min-width: 120px;
 }
 
+@media (max-width: 480px) {
+  .summary-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .summary-chip { min-width: 0; padding: 10px 12px; }
+  .summary-chip strong { font-size: 13px; overflow-wrap: anywhere; }
+  .filters { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .filter-select { min-width: 0; width: 100%; }
+}
+
 .summary-chip span { font-size: 11px; color: var(--text-muted); }
 .summary-chip strong { font-family: 'JetBrains Mono', monospace; font-size: 14px; color: var(--text-primary); }
 .summary-chip.green strong { color: var(--accent-green); }
@@ -353,6 +391,57 @@ const paginatedTxs = computed(() => filtered.value.slice((page.value - 1) * perP
 }
 
 .table-wrap { overflow-x: auto; }
+
+/* En móvil la tabla se cambia por una lista de tarjetas */
+.tx-list { display: none; }
+
+@media (max-width: 767px) {
+  .table-wrap { display: none; }
+  .tx-list { display: flex; flex-direction: column; }
+}
+
+.tx-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(35, 43, 62, 0.5);
+}
+
+.tx-item:last-child { border-bottom: none; }
+
+.tx-item-icon {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
+.tx-item-body { flex: 1; min-width: 0; }
+
+.tx-item-title,
+.tx-item-meta {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tx-item-title { color: var(--text-primary); font-size: 14px; font-weight: 500; }
+.tx-item-meta { color: var(--text-muted); font-size: 11px; margin-top: 2px; }
+
+.tx-item-side {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.tx-item-side .amount-cell { font-size: 13px; white-space: nowrap; }
 
 table {
   width: 100%;
@@ -436,6 +525,12 @@ td {
 
 .row-actions { display: flex; gap: 4px; opacity: 0; transition: opacity 0.2s; }
 tbody tr:hover .row-actions { opacity: 1; }
+.tx-item .row-actions { opacity: 1; }
+
+/* En pantallas táctiles no hay hover: las acciones siempre visibles */
+@media (hover: none) {
+  .row-actions { opacity: 1; }
+}
 
 .icon-btn {
   background: var(--bg-card);
