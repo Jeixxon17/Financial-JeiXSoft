@@ -93,6 +93,12 @@
                 </div>
               </div>
 
+              <div class="form-group">
+                <label>Últimos 4 dígitos</label>
+                <input v-model="form.lastDigits" type="text" inputmode="numeric" maxlength="4" placeholder="Ej: 1234" />
+                <small class="form-hint">Para reconocer la cuenta en las notificaciones del banco.</small>
+              </div>
+
               <template v-if="form.type !== 'credit'">
                 <div class="form-group">
                   <label>Saldo inicial</label>
@@ -205,6 +211,7 @@ const defaultForm = () => ({
   cutoffDate: 15,
   paymentDate: 25,
   interestRate: 0,
+  lastDigits: '',
   statementMinimums: {} as Record<string, number>,
   statementMinimum: 0,
   deferredDebts: [] as DeferredDebt[],

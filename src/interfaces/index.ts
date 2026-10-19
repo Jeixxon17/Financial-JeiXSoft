@@ -18,6 +18,26 @@ export interface Account {
   statementMinimums?: Record<string, number>
   // Deuda que el banco cobra por cuotas y no está en los movimientos
   deferredDebts?: DeferredDebt[]
+  // Últimos 4 dígitos, para reconocer la cuenta en las notificaciones del banco
+  lastDigits?: string
+}
+
+// Movimiento leído de una notificación del celular, esperando confirmación
+export interface PendingTransaction {
+  id: string
+  package: string
+  title: string
+  text: string
+  // Momento en que llegó la notificación (ISO)
+  receivedAt: string
+  type: 'income' | 'expense' | null
+  amount: number | null
+  description: string
+  last4: string | null
+  productKind: 'credit' | 'account' | null
+  // Fecha del movimiento según el texto (YYYY-MM-DD)
+  date: string | null
+  suggestedCategory: string | null
 }
 
 export interface DeferredDebt {

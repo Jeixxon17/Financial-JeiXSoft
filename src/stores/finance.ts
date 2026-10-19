@@ -8,6 +8,7 @@ import type {
   Paycheck,
   Budget,
   RecurringExpense,
+  PendingTransaction,
 } from "@/interfaces";
 
 import { getCurrentMonth, getMonthRange } from "@/utils/formatters";
@@ -49,6 +50,11 @@ import {
   updateRecurringExpenseService,
   deleteRecurringExpenseService,
 } from "@/services/recurring.service";
+
+import {
+  getPendingTransactionsService,
+  deletePendingTransactionService,
+} from "@/services/pending.service";
 
 import {
   getCategoriesService,
@@ -177,6 +183,8 @@ export const useFinanceStore = defineStore("finance", () => {
   const paychecks = ref<Paycheck[]>([]);
   const budgets = ref<Budget[]>([]);
   const recurringExpenses = ref<RecurringExpense[]>([]);
+  // Movimientos leídos de notificaciones del celular, esperando confirmación
+  const pendingTransactions = ref<PendingTransaction[]>([]);
   const selectedMonth = ref<string>(getCurrentMonth());
 
   // =========================================
@@ -217,6 +225,47 @@ export const useFinanceStore = defineStore("finance", () => {
     } finally {
       loading.value = false;
     }
+  }
+
+  async function loadPendingTransactions() {
+    try {
+      pendingTransactions.value = (await getPendingTransactionsService()).sort(
+        (a, b) => b.receivedAt.localeCompare(a.receivedAt),
+      );
+    } catch (error) {
+      console.error("Error loading pending transactions", error);
+    }
+  }
+
+  async function dismissPendingTransaction(id: string) {
+    try {
+      await deletePendingTransactionService(id);
+      pendingTransactions.value = pendingTransactions.value.filter(
+        (p) => p.id !== id,
+      );
+    } catch (error) {
+      console.error("Error deleting pending transaction", error);
+    }
+  }
+
+  // Cuenta de una notificación de Bancolombia: por los últimos 4 dígitos y,
+  // si no vienen o no coinciden, la cuenta o tarjeta con "Bancolombia" en el nombre
+  function getAccountForNotification(
+    last4: string | null,
+    productKind: "credit" | "account" | null,
+  ): Account | undefined {
+    const byDigits = last4
+      ? accounts.value.find((a) => a.lastDigits === last4)
+      : undefined;
+    if (byDigits || !productKind) return byDigits;
+
+    const candidates = accounts.value.filter((a) =>
+      productKind === "credit" ? a.type === "credit" : a.type === "debit" || a.type === "savings",
+    );
+    return (
+      candidates.find((a) => /bancolombia/i.test(a.name)) ||
+      (candidates.length === 1 ? candidates[0] : undefined)
+    );
   }
 
   async function loadRecurringExpenses() {
@@ -675,6 +724,7 @@ const remaining = computed(() =>
       loadRecurringExpenses(),
       loadPaychecks(),
       loadCategories(),
+      loadPendingTransactions(),
     ]);
     await migrateCategories(categories.value.length === 0);
     await processRecurringExpenses();
@@ -962,12 +1012,16 @@ const remaining = computed(() =>
     paychecks,
     budgets,
     recurringExpenses,
+    pendingTransactions,
     selectedMonth,
 
     // LOADERS
     loadAccounts,
     loadTransactions,
     loadPaychecks, 
+    loadPendingTransactions,
+    dismissPendingTransaction,
+    getAccountForNotification,
     loadFinanceData,
 
     // COMPUTED

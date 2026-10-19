@@ -1,10 +1,12 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.finance.app',
-  appName: 'FinanceApp',
+  appId: 'com.jeixsoft.finance',
+  appName: 'JeiXSoft',
   webDir: 'dist',
-  bundledWebRuntime: false
+  android: {
+    backgroundColor: '#0a0d14'
+  }
 };
 
 export default config;

@@ -23,6 +23,9 @@
         >
           <span class="nav-icon">{{ route.meta?.icon }}</span>
           <span class="nav-label">{{ route.meta?.title }}</span>
+          <span v-if="route.name === 'Inbox' && store.pendingTransactions.length" class="nav-badge">
+            {{ store.pendingTransactions.length }}
+          </span>
           <span class="nav-indicator" />
         </router-link>
       </nav>
@@ -187,6 +190,21 @@ function nextMonth() {
 
 .sidebar-open {
   transform: translateX(0) !important;
+}
+
+.nav-badge {
+  margin-left: auto;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  border-radius: 10px;
+  background: var(--accent-amber);
+  color: #000;
+  font-size: 11px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .security-actions {

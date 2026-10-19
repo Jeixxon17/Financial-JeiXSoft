@@ -1,0 +1,47 @@
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDocs,
+  setDoc
+} from 'firebase/firestore'
+
+import { db } from '@/firebase/config'
+
+import type { PendingTransaction } from '@/interfaces'
+
+const COLLECTION = 'pendingTransactions'
+
+export const getPendingTransactionsService = async () => {
+
+  const snapshot = await getDocs(
+    collection(db, COLLECTION)
+  )
+
+  return snapshot.docs.map(docu => ({
+    id: docu.id,
+    ...docu.data()
+  })) as PendingTransaction[]
+}
+
+// Id fijo por notificación: si llega dos veces no se duplica
+export const setPendingTransactionService = async (
+  pending: PendingTransaction
+) => {
+
+  const { id, ...data } = pending
+
+  await setDoc(
+    doc(db, COLLECTION, id),
+    data
+  )
+}
+
+export const deletePendingTransactionService = async (
+  id: string
+) => {
+
+  await deleteDoc(
+    doc(db, COLLECTION, id)
+  )
+}

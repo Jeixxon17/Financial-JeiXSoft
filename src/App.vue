@@ -9,6 +9,7 @@ import { onBeforeUnmount, onMounted, watch } from 'vue'
 import { useFinanceStore } from '@/stores/finance'
 import PinScreen from '@/components/security/PinScreen.vue'
 import { authState, initAuth, lockApp } from '@/services/auth.service'
+import { startNotificationListener } from '@/services/notificationListener'
 
 const store = useFinanceStore()
 
@@ -21,7 +22,10 @@ let hiddenAt = 0
 watch(
   () => authState.unlocked,
   unlocked => {
-    if (unlocked) store.initApp()
+    if (!unlocked) return
+    store.initApp()
+    // App Android: notificaciones de Bancolombia → "Por confirmar"
+    startNotificationListener(() => store.loadPendingTransactions())
   }
 )
 
@@ -30,6 +34,9 @@ function onVisibilityChange() {
     hiddenAt = Date.now()
   } else if (hiddenAt && Date.now() - hiddenAt > AUTO_LOCK_MS && authState.unlocked) {
     lockApp()
+  } else if (authState.unlocked) {
+    // Al volver a la app, trae lo que llegó mientras estaba en segundo plano
+    startNotificationListener(() => store.loadPendingTransactions())
   }
 }
 

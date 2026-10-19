@@ -5,6 +5,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/', redirect: '/dashboard' },
   { path: '/dashboard', name: 'Dashboard', component: () => import('@/pages/DashboardPage.vue'), meta: { title: 'Dashboard', icon: '📊' } },
   { path: '/transactions', name: 'Transactions', component: () => import('@/pages/TransactionsPage.vue'), meta: { title: 'Movimientos', icon: '↕️' } },
+  { path: '/inbox', name: 'Inbox', component: () => import('@/pages/InboxPage.vue'), meta: { title: 'Por confirmar', icon: '📥' } },
   { path: '/accounts', name: 'Accounts', component: () => import('@/pages/AccountsPage.vue'), meta: { title: 'Cuentas', icon: '🏦' } },
   { path: '/recurring', name: 'Recurring', component: () => import('@/pages/RecurringPage.vue'), meta: { title: 'Gastos automáticos', icon: '🔁' } },
   { path: '/categories', name: 'Categories', component: () => import('@/pages/CategoriesPage.vue'), meta: { title: 'Categorías', icon: '🏷️' } },

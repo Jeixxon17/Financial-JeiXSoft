@@ -3,7 +3,7 @@
     <div class="modal-backdrop" @click.self="$emit('close')">
       <div class="modal">
         <div class="modal-header">
-          <h2>{{ editing ? 'Editar movimiento' : 'Nuevo movimiento' }}</h2>
+          <h2>{{ title || (editing ? 'Editar movimiento' : 'Nuevo movimiento') }}</h2>
           <button class="modal-close" @click="$emit('close')">✕</button>
         </div>
 
@@ -198,23 +198,28 @@ import { formatCurrency, getCurrentMonth } from '@/utils/formatters'
 import CategorySelect from '@/components/CategorySelect.vue'
 import type { Transaction } from '@/interfaces'
 import { effectiveAnnualRate, installmentSchedule } from '@/utils/installments'
+import { todayISO } from '@/utils/dates'
 
 const props = defineProps<{
   transaction?: Transaction
+  // Datos iniciales para un movimiento nuevo (ej: leído de una notificación)
+  prefill?: Partial<Transaction>
+  title?: string
 }>()
 
-const emit = defineEmits(['close'])
+const emit = defineEmits(['close', 'saved'])
 const store = useFinanceStore()
 const editing = !!props.transaction
 const isSaving = ref(false)
+const initial = props.transaction || props.prefill
 const form = reactive({
-  type: props.transaction?.type || 'expense' as 'income' | 'expense' | 'transfer',
-  amount: props.transaction?.amount || 0,
-  date: props.transaction?.date || new Date().toISOString().split('T')[0],
-  category: props.transaction?.category || '',
-  accountId: props.transaction?.accountId || '',
+  type: initial?.type || 'expense' as 'income' | 'expense' | 'transfer',
+  amount: initial?.amount || 0,
+  date: initial?.date || todayISO(),
+  category: initial?.category || '',
+  accountId: initial?.accountId || '',
   targetAccountId: '',
-  description: props.transaction?.description || '',
+  description: initial?.description || '',
   installments: props.transaction?.installments || 1,
   interestRate: props.transaction?.interestRate || 0
 })
@@ -338,6 +343,7 @@ async function save() {
       tags: ['transfer']
     })
 
+    emit('saved')
     emit('close')
     return
   }
@@ -369,6 +375,7 @@ async function save() {
     await store.addTransaction(data)
   }
 
+  emit('saved')
   emit('close')
   } finally {
     isSaving.value = false
