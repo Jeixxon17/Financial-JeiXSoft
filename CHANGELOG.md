@@ -4,6 +4,12 @@ Cada pedido de cambios sube la versión menor (1.1 → 1.2 → 1.3…) con
 `npm run version:bump`. La versión vive en `package.json` y de ahí la toman
 la app web, la PWA y el APK de Android (se ve en el menú y en la pantalla del PIN).
 
+## 1.2 — 2026-10-21
+
+- Movimientos: filtro por rango de fechas (desde / hasta) con atajos
+  (Hoy, Últimos 7 días, Últimos 30 días, Mes pasado). Sin fechas se usa el
+  mes del menú. Al cambiar un filtro se vuelve a la primera página.
+
 ## 1.1 — 2026-10-21
 
 - Lector de notificaciones nativo: guarda las de Bancolombia y NU aunque la app

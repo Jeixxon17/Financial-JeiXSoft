@@ -29,6 +29,38 @@
         </div>
       </div>
 
+      <!-- Rango de fechas -->
+      <div class="date-range">
+        <div class="date-fields">
+          <label>
+            <span>Desde</span>
+            <input v-model="dateFrom" type="date" :max="dateTo || undefined" />
+          </label>
+          <label>
+            <span>Hasta</span>
+            <input v-model="dateTo" type="date" :min="dateFrom || undefined" />
+          </label>
+        </div>
+
+        <div class="date-presets">
+          <button
+            v-for="preset in presets"
+            :key="preset.label"
+            type="button"
+            class="preset-chip"
+            :class="{ active: dateFrom === preset.from() && dateTo === preset.to() }"
+            @click="applyPreset(preset)"
+          >
+            {{ preset.label }}
+          </button>
+          <button v-if="hasDateRange" type="button" class="preset-chip clear" @click="clearDates">
+            ✕ Limpiar
+          </button>
+        </div>
+
+        <p class="range-label">{{ rangeLabel }}</p>
+      </div>
+
       <!-- Summary row -->
       <div class="summary-row">
         <div class="summary-chip green">
@@ -41,7 +73,7 @@
         </div>
         <div class="summary-chip" :class="filteredBalance >= 0 ? 'green' : 'red'">
           <span>⚖️ Balance</span>
-          <strong>{{ filteredBalance >= 0 ? '+' : '' }}{{ formatCurrency(filteredBalance) }}</strong>
+          <strong>{{ filteredBalance >= 0 ? '+' : '-' }}{{ formatCurrency(filteredBalance) }}</strong>
         </div>
         <div class="summary-chip blue">
           <span>📋 Total</span>
@@ -161,12 +193,14 @@
 import {
   ref,
   computed,
+  watch,
   onMounted
 } from 'vue'
 import AppLayout from '@/layouts/AppLayout.vue'
 import TransactionModal from '@/components/modals/TransactionModal.vue'
 import { useFinanceStore } from '@/stores/finance'
-import { formatCurrency, formatDate } from '@/utils/formatters'
+import { formatCurrency, formatDate, formatMonth } from '@/utils/formatters'
+import { addDaysISO, dateInMonth, toISODate, todayISO } from '@/utils/dates'
 import type { Transaction } from '@/interfaces'
 
 const store = useFinanceStore()
@@ -180,6 +214,56 @@ const sortField = ref<'date' | 'amount'>('date')
 const sortDir = ref<'asc' | 'desc'>('desc')
 const page = ref(1)
 const perPage = 15
+
+// Rango de fechas (YYYY-MM-DD). Vacío: se usa el mes elegido en el menú
+const dateFrom = ref('')
+const dateTo = ref('')
+const hasDateRange = computed(() => !!(dateFrom.value || dateTo.value))
+
+interface DatePreset {
+  label: string
+  from: () => string
+  to: () => string
+}
+
+function lastMonthEdge(day: 'first' | 'last') {
+  const now = new Date()
+  return toISODate(day === 'first'
+    ? dateInMonth(now.getFullYear(), now.getMonth() - 1, 1)
+    : new Date(now.getFullYear(), now.getMonth(), 0))
+}
+
+const presets: DatePreset[] = [
+  { label: 'Hoy', from: todayISO, to: todayISO },
+  { label: 'Últimos 7 días', from: () => addDaysISO(todayISO(), -6), to: todayISO },
+  { label: 'Últimos 30 días', from: () => addDaysISO(todayISO(), -29), to: todayISO },
+  { label: 'Mes pasado', from: () => lastMonthEdge('first'), to: () => lastMonthEdge('last') }
+]
+
+function applyPreset(preset: DatePreset) {
+  dateFrom.value = preset.from()
+  dateTo.value = preset.to()
+}
+
+function clearDates() {
+  dateFrom.value = ''
+  dateTo.value = ''
+}
+
+const rangeLabel = computed(() => {
+  if (!hasDateRange.value) return `Mostrando ${formatMonth(store.selectedMonth)} (mes del menú)`
+  if (dateFrom.value && dateTo.value) {
+    return dateFrom.value === dateTo.value
+      ? `Mostrando el ${formatDate(dateFrom.value)}`
+      : `Mostrando del ${formatDate(dateFrom.value)} al ${formatDate(dateTo.value)}`
+  }
+  return dateFrom.value ? `Mostrando desde el ${formatDate(dateFrom.value)}` : `Mostrando hasta el ${formatDate(dateTo.value)}`
+})
+
+// Al cambiar cualquier filtro se vuelve a la primera página
+watch([search, filterType, filterCategory, filterAccount, dateFrom, dateTo, () => store.selectedMonth], () => {
+  page.value = 1
+})
 
 onMounted(async () => {
 
@@ -202,7 +286,12 @@ function sort(field: 'date' | 'amount') {
 
 const filtered = computed(() => {
 
-  let txs = [...store.monthTransactions]
+  let txs = hasDateRange.value
+    ? store.transactions.filter(t =>
+        (!dateFrom.value || t.date >= dateFrom.value) &&
+        (!dateTo.value || t.date <= dateTo.value)
+      )
+    : [...store.monthTransactions]
 
   if (search.value) {
 
@@ -350,6 +439,83 @@ const paginatedTxs = computed(() => filtered.value.slice((page.value - 1) * perP
 }
 
 /* Summary chips */
+/* Rango de fechas */
+.date-range {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px 16px;
+}
+
+.date-fields {
+  display: flex;
+  gap: 10px;
+}
+
+.date-fields label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.date-fields input {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 10px;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: 'DM Sans', sans-serif;
+  color-scheme: dark;
+}
+
+.date-fields input:focus {
+  outline: none;
+  border-color: var(--accent-green);
+}
+
+.date-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.preset-chip {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 6px 12px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.preset-chip:hover { border-color: var(--border-light); color: var(--text-primary); }
+.preset-chip.active { background: var(--accent-green-dim); border-color: var(--accent-green); color: var(--accent-green); }
+.preset-chip.clear { color: var(--accent-red); }
+
+.range-label {
+  width: 100%;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+@media (max-width: 480px) {
+  .date-fields { width: 100%; }
+  .date-fields label { flex: 1; min-width: 0; }
+  .date-fields input { width: 100%; }
+}
+
 .summary-row {
   display: flex;
   gap: 10px;
