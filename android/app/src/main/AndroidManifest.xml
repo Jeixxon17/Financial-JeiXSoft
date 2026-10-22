@@ -24,8 +24,9 @@
 
         </activity>
 
-        <!-- Lee las notificaciones de Bancolombia (permiso "Acceso a notificaciones") -->
-        <service android:name="com.capacitor.notifications.listener.NotificationService"
+        <!-- Lee las notificaciones de Bancolombia y NU aunque la app esté cerrada
+             (permiso "Acceso a notificaciones") y las sube a Firestore -->
+        <service android:name=".notifications.BankNotificationService"
             android:exported="true"
             android:label="@string/app_name"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
@@ -33,6 +34,14 @@
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
         </service>
+
+        <!-- Al encender el celular o actualizar la app, reconecta el lector -->
+        <receiver android:name=".notifications.BootReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
 
         <provider
             android:name="androidx.core.content.FileProvider"
@@ -48,4 +57,6 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 </manifest>

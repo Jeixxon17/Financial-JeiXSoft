@@ -2,16 +2,32 @@
   <AppLayout>
     <div class="inbox-page">
       <!-- Estado de la lectura de notificaciones -->
-      <div v-if="canReadNotifications" class="status-card" :class="permission ? 'ok' : 'warn'">
-        <div>
-          <strong>{{ permission ? '🔔 Leyendo notificaciones de Bancolombia' : '🔕 Lectura de notificaciones desactivada' }}</strong>
-          <p v-if="permission">Cada notificación de Bancolombia llega aquí para que la confirmes.</p>
-          <p v-else>
-            Toca "Activar", busca <b>JeiXSoft</b> en "Acceso a notificaciones" y actívalo.
-            Luego vuelve a la app.
+      <div v-if="canReadNotifications && status" class="status-card" :class="allReady ? 'ok' : 'warn'">
+        <div class="status-body">
+          <strong>{{ allReady ? '🔔 Leyendo notificaciones de Bancolombia y NU' : '⚠️ Falta configurar la lectura de notificaciones' }}</strong>
+          <p v-if="allReady">
+            Se guardan y se suben solas, aunque la app esté cerrada.
+            <template v-if="status.queued"> {{ status.queued }} esperando internet.</template>
+          </p>
+
+          <ul class="checklist">
+            <li :class="status.permission ? 'done' : ''">
+              <span>{{ status.permission ? '✅' : '⬜' }} Acceso a notificaciones</span>
+              <button v-if="!status.permission" class="btn-primary" @click="openNotificationSettings">Activar</button>
+            </li>
+            <li :class="status.battery ? 'done' : ''">
+              <span>{{ status.battery ? '✅' : '⬜' }} Sin límite de batería</span>
+              <button v-if="!status.battery" class="btn-primary" @click="requestBatteryExemption">Permitir</button>
+            </li>
+            <li :class="status.session ? 'done' : ''">
+              <span>{{ status.session ? '✅' : '⬜' }} Subida automática</span>
+            </li>
+          </ul>
+
+          <p v-if="!status.permission" class="status-tip">
+            En "Acceso a notificaciones" busca <b>JeiXSoft</b>, actívalo y vuelve a la app.
           </p>
         </div>
-        <button v-if="!permission" class="btn-primary" @click="activate">Activar</button>
       </div>
 
       <div v-else class="status-card info">
@@ -22,8 +38,8 @@
       </div>
 
       <!-- Lista -->
-      <div v-if="store.pendingTransactions.length" class="pending-list">
-        <div v-for="item in store.pendingTransactions" :key="item.id" class="pending-card">
+      <div v-if="items.length" class="pending-list">
+        <div v-for="item in items" :key="item.id" class="pending-card">
           <div class="pending-top">
             <span class="type-badge" :class="item.type || 'unknown'">
               {{ item.type === 'income' ? '📥 Ingreso' : item.type === 'expense' ? '📤 Gasto' : '❔ Sin identificar' }}
@@ -74,49 +90,62 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import AppLayout from '@/layouts/AppLayout.vue'
 import TransactionModal from '@/components/modals/TransactionModal.vue'
 import { useFinanceStore } from '@/stores/finance'
 import { formatCurrency } from '@/utils/formatters'
 import { toISODate } from '@/utils/dates'
+import { parseBankNotification, type ParsedNotification } from '@/utils/bankNotifications'
 import type { PendingTransaction, Transaction } from '@/interfaces'
 import {
   canReadNotifications,
-  notificationPermissionGranted,
-  requestNotificationPermission
+  flushNotifications,
+  getNotificationStatus,
+  openNotificationSettings,
+  requestBatteryExemption
 } from '@/services/notificationListener'
 
+type PendingItem = PendingTransaction & ParsedNotification & { bank: 'bancolombia' | 'nu' }
+
 const store = useFinanceStore()
-const selected = ref<PendingTransaction | null>(null)
-const permission = ref(false)
+const selected = ref<PendingItem | null>(null)
+const status = ref<Awaited<ReturnType<typeof getNotificationStatus>>>(null)
 
-async function refreshPermission() {
-  permission.value = await notificationPermissionGranted()
+const allReady = computed(() => !!status.value?.permission && status.value.battery && status.value.session)
+
+// Se interpretan al mostrarlas: mejorar el intérprete no requiere reinstalar la app
+const items = computed<PendingItem[]>(() =>
+  store.pendingTransactions.map(p => {
+    const bank = p.bank || (p.package === 'com.nu.production' ? 'nu' : 'bancolombia')
+    return { ...p, bank, ...parseBankNotification(p.title, p.text, bank) }
+  })
+)
+
+async function refresh() {
+  status.value = await getNotificationStatus()
+  await flushNotifications()
+  await store.loadPendingTransactions()
 }
 
-async function activate() {
-  await requestNotificationPermission()
-}
-
-// Al volver de Ajustes se revisa otra vez el permiso
+// Al volver de Ajustes se revisa otra vez el estado
 function onVisible() {
-  if (!document.hidden) {
-    refreshPermission()
-    store.loadPendingTransactions()
-  }
+  if (!document.hidden) refresh()
 }
 
 onMounted(() => {
-  refreshPermission()
-  store.loadPendingTransactions()
+  refresh()
   document.addEventListener('visibilitychange', onVisible)
 })
 
 onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisible))
 
-function accountLabel(item: PendingTransaction) {
-  const account = store.getAccountForNotification(item.last4, item.productKind)
+function accountFor(item: PendingItem) {
+  return store.getAccountForNotification(item.last4, item.productKind, item.bank)
+}
+
+function accountLabel(item: PendingItem) {
+  const account = accountFor(item)
   if (account) return `${account.icon} ${account.name}${item.last4 ? ` · *${item.last4}` : ''}`
   return item.last4 ? `Cuenta *${item.last4} (sin asociar)` : 'Cuenta sin identificar'
 }
@@ -130,7 +159,7 @@ function formatReceived(iso: string) {
   })
 }
 
-function prefillFor(item: PendingTransaction): Partial<Transaction> {
+function prefillFor(item: PendingItem): Partial<Transaction> {
   const category = item.suggestedCategory && store.getCategoryById(item.suggestedCategory)
     ? item.suggestedCategory
     : ''
@@ -139,7 +168,7 @@ function prefillFor(item: PendingTransaction): Partial<Transaction> {
     type: item.type || 'expense',
     amount: item.amount || 0,
     date: item.date || toISODate(new Date(item.receivedAt)),
-    accountId: store.getAccountForNotification(item.last4, item.productKind)?.id || '',
+    accountId: accountFor(item)?.id || '',
     description: item.description,
     category
   }
@@ -174,6 +203,32 @@ function prefillFor(item: PendingTransaction): Partial<Transaction> {
 .status-card p {
   font-size: 13px;
   color: var(--text-secondary);
+}
+
+.status-body { flex: 1; min-width: 0; }
+
+.checklist {
+  list-style: none;
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.checklist li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.checklist li.done { color: var(--text-primary); }
+
+.status-tip {
+  margin-top: 10px;
+  font-size: 12px;
 }
 
 .status-card.ok { border-left: 4px solid var(--accent-green); }

@@ -23,21 +23,16 @@ export interface Account {
 }
 
 // Movimiento leído de una notificación del celular, esperando confirmación
+// Lo sube el lector nativo del celular tal cual llega; se interpreta al mostrarlo
+// (utils/bankNotifications.ts), así se mejora sin reinstalar la app
 export interface PendingTransaction {
   id: string
   package: string
+  bank?: 'bancolombia' | 'nu'
   title: string
   text: string
   // Momento en que llegó la notificación (ISO)
   receivedAt: string
-  type: 'income' | 'expense' | null
-  amount: number | null
-  description: string
-  last4: string | null
-  productKind: 'credit' | 'account' | null
-  // Fecha del movimiento según el texto (YYYY-MM-DD)
-  date: string | null
-  suggestedCategory: string | null
 }
 
 export interface DeferredDebt {

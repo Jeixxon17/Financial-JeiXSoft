@@ -248,11 +248,12 @@ export const useFinanceStore = defineStore("finance", () => {
     }
   }
 
-  // Cuenta de una notificación de Bancolombia: por los últimos 4 dígitos y,
-  // si no vienen o no coinciden, la cuenta o tarjeta con "Bancolombia" en el nombre
+  // Cuenta de una notificación del banco: por los últimos 4 dígitos y, si no
+  // vienen o no coinciden, la cuenta o tarjeta con el nombre del banco (Bancolombia / Nu)
   function getAccountForNotification(
     last4: string | null,
     productKind: "credit" | "account" | null,
+    bank: "bancolombia" | "nu" = "bancolombia",
   ): Account | undefined {
     const byDigits = last4
       ? accounts.value.find((a) => a.lastDigits === last4)
@@ -263,7 +264,9 @@ export const useFinanceStore = defineStore("finance", () => {
       productKind === "credit" ? a.type === "credit" : a.type === "debit" || a.type === "savings",
     );
     return (
-      candidates.find((a) => /bancolombia/i.test(a.name)) ||
+      candidates.find((a) =>
+        bank === "nu" ? /\bnu\b/i.test(a.name) : /bancolombia/i.test(a.name),
+      ) ||
       (candidates.length === 1 ? candidates[0] : undefined)
     );
   }

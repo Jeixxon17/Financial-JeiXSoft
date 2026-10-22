@@ -1,4 +1,4 @@
-// Interpreta las notificaciones de Bancolombia para proponer un movimiento.
+// Interpreta las notificaciones de Bancolombia y NU para proponer un movimiento.
 // Los textos cambian con el tiempo: si una notificación no se entiende, igual
 // queda en "Por confirmar" con el texto original para registrarla a mano.
 //
@@ -9,6 +9,8 @@
 //   transferiste $25,700.00 a la llave … desde tu cuenta *4603 a NOMBRE el 30/09/26 …
 //   Compraste COP27.800,00 en COMERCIO con tu T.Cred *3162, el 30/09/2026 …
 //   Pagaste $559,814.02 a COMERCIO desde tu producto 4603 el 30/09/2026 14:14:27 …
+
+export type Bank = 'bancolombia' | 'nu'
 
 export interface ParsedNotification {
   type: 'income' | 'expense' | null
@@ -24,15 +26,10 @@ export interface ParsedNotification {
   suggestedCategory: string | null
 }
 
-const BANK_PACKAGES = ['com.todo1.mobile', 'com.bancolombia', 'co.com.bancolombia']
-
-export function isBankNotification(pkg: string, title: string, text: string): boolean {
-  if (BANK_PACKAGES.some(p => pkg.toLowerCase().startsWith(p))) return true
-  return /bancolombia/i.test(`${title} ${text}`)
-}
-
-const INCOME_WORDS = /\b(recibiste|te consignaron|te transfirieron|te enviaron|abono|abonamos|reembolso)\b/i
-const EXPENSE_WORDS = /\b(pagaste|compraste|transferiste|enviaste|retiraste|retiro|debitamos)\b/i
+// "Recibimos tu pago" (NU) es un pago a la tarjeta: entra como ingreso a la
+// tarjeta y al confirmarlo se puede cambiar a transferencia desde la cuenta
+const INCOME_WORDS = /\b(recibiste|recibimos tu pago|te consignaron|te transfirieron|te enviaron|abono|abonamos|reembolso|devoluci[oó]n)\b/i
+const EXPENSE_WORDS = /\b(pagaste|compraste|compra|transferiste|enviaste|retiraste|retiro|debitamos|cobro|cargo)\b/i
 
 const MONEY = String.raw`(?:\$|COP)\s?[\d.,]*\d`
 
@@ -83,9 +80,10 @@ function findDescription(text: string, type: ParsedNotification['type']): string
   return ''
 }
 
-export function parseBankNotification(title: string, text: string): ParsedNotification {
-  // El título suele ser "Bancolombia"; el contenido está en el texto
-  const full = text.replace(/\s+/g, ' ').replace(/^\s*Bancolombia:\s*/i, '').trim() || title
+export function parseBankNotification(title: string, text: string, bank: Bank = 'bancolombia'): ParsedNotification {
+  // En Bancolombia el título es el banco; en NU el título puede traer el resumen
+  const body = text.replace(/\s+/g, ' ').replace(/^\s*Bancolombia:\s*/i, '').trim()
+  const full = bank === 'nu' && title && !body.includes(title) ? `${title}. ${body}` : body || title
 
   const amountMatch = full.match(new RegExp(MONEY, 'i'))
   const amount = amountMatch ? parseCOP(amountMatch[0]) : null
@@ -98,7 +96,9 @@ export function parseBankNotification(title: string, text: string): ParsedNotifi
   const last4 = last4Match ? last4Match[1] : null
 
   let productKind: ParsedNotification['productKind'] = null
-  if (/\bT\.?\s?Cred\b|tarjeta de cr[eé]dito/i.test(full)) productKind = 'credit'
+  // NU en Colombia es la tarjeta de crédito
+  if (bank === 'nu') productKind = 'credit'
+  else if (/\bT\.?\s?Cred\b|tarjeta de cr[eé]dito/i.test(full)) productKind = 'credit'
   else if (/\b(cuenta|producto|ahorros)\b/i.test(full)) productKind = 'account'
 
   const suggestedCategory = type === 'income' && /\bn[oó]mina\b/i.test(full) ? 'salary' : null

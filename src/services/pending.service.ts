@@ -2,8 +2,7 @@ import {
   collection,
   deleteDoc,
   doc,
-  getDocs,
-  setDoc
+  getDocs
 } from 'firebase/firestore'
 
 import { db } from '@/firebase/config'
@@ -22,19 +21,6 @@ export const getPendingTransactionsService = async () => {
     id: docu.id,
     ...docu.data()
   })) as PendingTransaction[]
-}
-
-// Id fijo por notificación: si llega dos veces no se duplica
-export const setPendingTransactionService = async (
-  pending: PendingTransaction
-) => {
-
-  const { id, ...data } = pending
-
-  await setDoc(
-    doc(db, COLLECTION, id),
-    data
-  )
 }
 
 export const deletePendingTransactionService = async (

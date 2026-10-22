@@ -58,7 +58,7 @@
         <button class="security-btn" @click="lockApp">🔒 Bloquear</button>
       </div>
 
-      <p class="text-[10px] flex items-center justify-center my-2 text-[#4a566e]">&copy; 2026 JeixSoft. Todos los derechos reservados.</p>
+      <p class="text-[10px] flex items-center justify-center my-2 text-[#4a566e]">&copy; 2026 JeixSoft · v{{ appVersion }}</p>
     </aside>
 
     <!-- Main content -->
@@ -116,6 +116,7 @@ const route = useRoute()
 const sidebarOpen = ref(false)
 const showModal = ref(false)
 const showChangePin = ref(false)
+const appVersion = __APP_VERSION__
 const currentMonth = getCurrentMonth()
 
 const navRoutes = router.getRoutes().filter(r => r.meta?.title)

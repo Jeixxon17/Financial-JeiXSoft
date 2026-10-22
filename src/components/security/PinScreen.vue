@@ -30,6 +30,8 @@
           Empezar de nuevo
         </button>
       </template>
+
+      <p class="pin-version">v{{ appVersion }}</p>
     </div>
   </div>
 </template>
@@ -53,6 +55,7 @@ const MAX_ATTEMPTS = 5
 const LOCK_SECONDS = 30
 
 const pad = ref<InstanceType<typeof PinPad> | null>(null)
+const appVersion = __APP_VERSION__
 const mode = ref<Mode>('loading')
 const error = ref('')
 const busy = ref(false)
@@ -192,6 +195,12 @@ onBeforeUnmount(() => lockTimer && clearInterval(lockTimer))
   color: var(--accent-blue);
   font-size: 14px;
   cursor: pointer;
+}
+
+.pin-version {
+  margin-top: 28px;
+  font-size: 11px;
+  color: var(--text-muted);
 }
 
 .pin-retry {
