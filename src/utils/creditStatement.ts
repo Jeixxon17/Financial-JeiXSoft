@@ -12,8 +12,6 @@ export interface CreditStatement {
   totalPaid: number
   // Mínimo acumulado al próximo corte: lo pendiente más lo que se va facturando
   nextMinimumPayment: number
-  // Cargos del banco que no vienen de movimientos (intereses, comisiones...)
-  bankCharges: number
   isMinimumCovered: boolean
 }
 
@@ -104,35 +102,28 @@ function paidUntil(accountTxs: Transaction[], dateISO: string): number {
     .reduce((sum, tx) => sum + tx.amount, 0)
 }
 
-export interface StatementAdjustment {
-  // Ajuste a lo facturado (puede ser negativo: compras que el banco difirió)
-  billed: number
-  // Parte que es deuda nueva (intereses, comisiones); nunca negativa
-  debt: number
-}
-
 /**
- * Ajustes de los extractos hasta el corte `untilCutoff` (inclusive), según
- * los pagos mínimos reales (`account.statementMinimums`, por fecha de corte).
- * En cada extracto: diferencia = mínimo del extracto − lo que la app calcula.
+ * Ajuste a lo facturado hasta el corte `untilCutoff` (inclusive), según los
+ * pagos mínimos reales de los extractos (`account.statementMinimums`, por
+ * fecha de corte). En cada extracto: ajuste = mínimo del extracto − lo que la
+ * app calcula, así el pago mínimo queda igual al del banco.
  *
- * - Diferencia negativa: el banco difirió compras. Bajan lo facturado, pero
- *   se siguen debiendo y quedan pendientes por facturar.
- * - Diferencia positiva: primero es el banco cobrando lo que había diferido;
- *   lo que sobre son intereses o comisiones y sí suma a la deuda.
+ * Solo cambia CUÁNDO se factura (cuotas, compras del día del corte, fechas
+ * de corte distintas), nunca cuánto se debe: los intereses y comisiones del
+ * banco se registran como movimientos y la deuda se cuadra con la deuda
+ * diferida ("Deuda total según el banco").
  */
 export function statementAdjustmentsUntil(
   account: Account,
   transactions: Transaction[],
   untilCutoff?: Date
-): StatementAdjustment {
-  const result: StatementAdjustment = { billed: 0, debt: 0 }
+): number {
   const minimums = account.statementMinimums
-  if (account.type !== 'credit' || !account.cutoffDate || !minimums) return result
+  if (account.type !== 'credit' || !account.cutoffDate || !minimums) return 0
 
   const accountTxs = creditTransactions(account, transactions)
   const limit = untilCutoff ? toISODate(untilCutoff) : '9999-12-31'
-  let pendingDeferred = 0
+  let adjustment = 0
 
   Object.keys(minimums)
     .filter(cutoffISO => cutoffISO <= limit)
@@ -141,29 +132,20 @@ export function statementAdjustmentsUntil(
       const cutoffIdx = monthIndexOf(parseISODate(cutoffISO))
       const computed =
         billedUntil(accountTxs, account.cutoffDate!, cutoffIdx) +
-        result.billed -
+        adjustment -
         paidUntil(accountTxs, cutoffISO)
 
-      const difference = minimums[cutoffISO] - Math.max(0, computed)
-      result.billed += difference
-
-      if (difference < 0) {
-        pendingDeferred -= difference
-      } else {
-        const fromDeferred = Math.min(difference, pendingDeferred)
-        pendingDeferred -= fromDeferred
-        result.debt += difference - fromDeferred
-      }
+      adjustment += minimums[cutoffISO] - Math.max(0, computed)
     })
 
-  return result
+  return adjustment
 }
 
 /**
  * Calcula el estado de cuenta de una tarjeta de crédito.
  *
- * Lo facturado acumulado hasta el último corte (compras por cuotas más los
- * cargos del banco tomados de los extractos) menos todos los pagos hechos a
+ * Lo facturado acumulado hasta el último corte (compras por cuotas, ajustado
+ * con los mínimos reales de los extractos) menos todos los pagos hechos a
  * la tarjeta es el pago mínimo pendiente. Las compras posteriores al corte no
  * entran hasta el siguiente corte.
  */
@@ -181,7 +163,6 @@ export function calculateCreditStatement(
     totalBilled: 0,
     totalPaid: 0,
     nextMinimumPayment: 0,
-    bankCharges: 0,
     isMinimumCovered: true
   }
 
@@ -193,9 +174,9 @@ export function calculateCreditStatement(
 
   const accountTxs = creditTransactions(account, transactions)
 
-  const adjustment = statementAdjustmentsUntil(account, transactions, lastCutoff)
-  const bankCharges = adjustment.debt
-  const totalBilled = billedUntil(accountTxs, cutoffDay, monthIndexOf(lastCutoff)) + adjustment.billed
+  const totalBilled =
+    billedUntil(accountTxs, cutoffDay, monthIndexOf(lastCutoff)) +
+    statementAdjustmentsUntil(account, transactions, lastCutoff)
   const totalPaid = paidUntil(accountTxs, '9999-12-31')
 
   // Fecha límite: el primer día de pago después del corte
@@ -211,7 +192,7 @@ export function calculateCreditStatement(
 
   const nextBilled =
     billedUntil(accountTxs, cutoffDay, monthIndexOf(nextCutoff)) +
-    statementAdjustmentsUntil(account, transactions, nextCutoff).billed
+    statementAdjustmentsUntil(account, transactions, nextCutoff)
   const nextMinimumPayment = Math.max(0, Math.round(nextBilled - totalPaid))
 
   return {
@@ -223,7 +204,6 @@ export function calculateCreditStatement(
     totalBilled: Math.round(totalBilled),
     totalPaid,
     nextMinimumPayment,
-    bankCharges: Math.round(bankCharges),
     isMinimumCovered: minimumPayment === 0
   }
 }
