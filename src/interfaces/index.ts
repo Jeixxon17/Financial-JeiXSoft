@@ -14,6 +14,8 @@ export interface Account {
   totalToPay?: number
   // Interés mensual (%) de las compras a cuotas con intereses
   interestRate?: number
+  // Comisión (%) por compras en moneda extranjera (ej: NU/Mastercard 0,45 %)
+  fxFeeRate?: number
   // Pago mínimo real de cada extracto, por fecha de corte (YYYY-MM-DD)
   statementMinimums?: Record<string, number>
   // Deuda que el banco cobra por cuotas y no está en los movimientos
@@ -65,7 +67,11 @@ export interface Transaction {
 export interface RecurringExpense {
   id: string
   name: string
+  // En pesos. Si se cobra en dólares es el valor estimado con la última TRM
   amount: number
+  // Cobros en dólares: se convierten con la TRM del día anterior al cobro
+  currency?: 'COP' | 'USD'
+  amountUsd?: number
   dayOfMonth: number
   accountId: string
   category: string

@@ -127,6 +127,10 @@
                   <label>Interés mensual a cuotas (%)</label>
                   <input v-model.number="form.interestRate" type="number" min="0" step="0.0001" placeholder="Ej: 2.1593" />
                 </div>
+                <div class="form-group">
+                  <label>Comisión moneda extranjera (%)</label>
+                  <input v-model.number="form.fxFeeRate" type="number" min="0" step="0.01" placeholder="Ej: 0.45" />
+                </div>
                 <div v-if="editAccount" class="form-group full">
                   <label>Pago mínimo del extracto (corte {{ currentCutoffLabel }})</label>
                   <input v-model.number="form.statementMinimum" type="number" placeholder="Lo que dice el banco" />
@@ -211,6 +215,7 @@ const defaultForm = () => ({
   cutoffDate: 15,
   paymentDate: 25,
   interestRate: 0,
+  fxFeeRate: 0,
   lastDigits: '',
   statementMinimums: {} as Record<string, number>,
   statementMinimum: 0,

@@ -91,6 +91,18 @@
 
           </div>
 
+          <!-- Compra en moneda extranjera: la tarjeta cobra una comisión aparte -->
+          <label v-if="showFx" class="fx-box">
+            <input v-model="form.foreignCurrency" type="checkbox" />
+            <span>
+              🌎 Compra en moneda extranjera (USD)
+              <small v-if="form.foreignCurrency && form.amount > 0">
+                Se registra aparte la comisión del {{ fxRate }} %: {{ formatCurrency(fxFee) }}
+              </small>
+              <small v-else>La tarjeta cobra {{ fxRate }} % por cambio de moneda</small>
+            </span>
+          </label>
+
           <!-- Credit installments -->
           <div class="installments-box" v-if="showInstallments">
             <div class="installments-header">
@@ -221,7 +233,8 @@ const form = reactive({
   targetAccountId: '',
   description: initial?.description || '',
   installments: props.transaction?.installments || 1,
-  interestRate: props.transaction?.interestRate || 0
+  interestRate: props.transaction?.interestRate || 0,
+  foreignCurrency: false
 })
 
 const types = [
@@ -243,6 +256,11 @@ const quickInstallments = [1, 3, 6, 12, 24, 36]
 const selectedAccount = computed(() =>
   store.getAccountById(form.accountId)
 )
+
+// Comisión por cambio de moneda de la tarjeta (solo al crear un gasto)
+const fxRate = computed(() => selectedAccount.value?.fxFeeRate || 0)
+const showFx = computed(() => !editing && form.type === 'expense' && fxRate.value > 0)
+const fxFee = computed(() => Math.round(form.amount * fxRate.value) / 100)
 
 const showInstallments = computed(() =>
   form.type === 'expense' && selectedAccount.value?.type === 'credit'
@@ -366,6 +384,9 @@ async function save() {
     data.installmentAmount = installmentAmount.value
   }
 
+  const withFxFee = showFx.value && form.foreignCurrency && fxFee.value > 0
+  if (withFxFee) data.tags = [...data.tags, 'moneda extranjera']
+
   if (editing && props.transaction) {
     await store.updateTransaction(
       props.transaction.id,
@@ -373,6 +394,26 @@ async function save() {
     )
   } else {
     await store.addTransaction(data)
+  }
+
+  // La comisión por cambio de moneda va como un gasto aparte, igual que en el banco
+  if (withFxFee) {
+    const fee: Omit<Transaction, 'id'> = {
+      type: 'expense',
+      amount: fxFee.value,
+      date: form.date,
+      category: await store.getFeesCategoryId(),
+      accountId: form.accountId,
+      description: `Comisión cambio de moneda${form.description ? ` · ${form.description}` : ''}`,
+      paymentMethod: data.paymentMethod,
+      tags: ['comisión']
+    }
+    if (showInstallments.value) {
+      fee.installments = 1
+      fee.interestRate = 0
+      fee.installmentAmount = fxFee.value
+    }
+    await store.addTransaction(fee)
   }
 
   emit('saved')
@@ -544,6 +585,35 @@ async function save() {
 
 .amount-input input {
   padding-left: 24px;
+}
+
+.fx-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.fx-box input {
+  margin-top: 2px;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent-green);
+  flex-shrink: 0;
+}
+
+.fx-box small {
+  display: block;
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--text-muted);
 }
 
 .installments-box {

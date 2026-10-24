@@ -13,6 +13,7 @@ import type {
 
 import { getCurrentMonth, getMonthRange } from "@/utils/formatters";
 import { calculateCreditStatement, creditInterestUntil, creditTransactions } from "@/utils/creditStatement";
+import { fxFee, trmForCharge, usdToCop } from "@/utils/exchange";
 import {
   addDaysISO,
   dateInMonth,
@@ -682,26 +683,57 @@ const remaining = computed(() =>
             const txId = `rec_${rec.id}_${date}`;
             if (transactions.value.some((t) => t.id === txId)) continue;
 
+            // En dólares: TRM del día anterior al cobro (como lo hace NU)
+            const isUsd = rec.currency === "USD" && !!rec.amountUsd;
+            const trm = isUsd ? await trmForCharge(date) : null;
+            const amount = isUsd && trm ? usdToCop(rec.amountUsd!, trm) : rec.amount;
+
             const tx: Omit<Transaction, "id"> = {
               type: "expense",
-              amount: rec.amount,
+              amount,
               date,
               category: rec.category,
               accountId: rec.accountId,
-              description: rec.name,
+              description: isUsd
+                ? `${rec.name} (${rec.amountUsd} USD${trm ? ` × ${trm}` : ""}, valor estimado)`
+                : rec.name,
               paymentMethod: isCredit ? "Crédito" : "Débito automático",
-              tags: ["automático"],
+              tags: isUsd ? ["automático", "moneda extranjera"] : ["automático"],
               recurringId: rec.id,
             };
 
             if (isCredit) {
               tx.installments = 1;
               tx.interestRate = 0;
-              tx.installmentAmount = rec.amount;
+              tx.installmentAmount = amount;
             }
 
             await setTransactionService(txId, tx);
             created++;
+
+            // Comisión por cambio de moneda de la tarjeta, aparte como en el banco
+            const feeRate = account?.fxFeeRate || 0;
+            if (isUsd && feeRate > 0) {
+              const fee = fxFee(amount, feeRate);
+              const feeTx: Omit<Transaction, "id"> = {
+                type: "expense",
+                amount: fee,
+                date,
+                category: await getFeesCategoryId(),
+                accountId: rec.accountId,
+                description: `Comisión cambio de moneda · ${rec.name}`,
+                paymentMethod: tx.paymentMethod,
+                tags: ["automático", "comisión"],
+                recurringId: rec.id,
+              };
+              if (isCredit) {
+                feeTx.installments = 1;
+                feeTx.interestRate = 0;
+                feeTx.installmentAmount = fee;
+              }
+              await setTransactionService(`${txId}_fee`, feeTx);
+              created++;
+            }
           }
 
           await updateRecurringExpenseService(rec.id, { lastRunDate: today });
@@ -826,6 +858,17 @@ const remaining = computed(() =>
       console.error("Error deleting category", error);
       return false;
     }
+  }
+
+  // Categoría para intereses y comisiones del banco (la crea si no existe)
+  async function getFeesCategoryId(): Promise<string> {
+    const id = await addCategory({
+      name: "Intereses y comisiones",
+      icon: "🏦",
+      color: "#f59e0b",
+      type: "expense",
+    });
+    return id || "other";
   }
 
   // Obligación de quincena → categoría con el mismo nombre (la crea si no existe)
@@ -1058,6 +1101,7 @@ const remaining = computed(() =>
     deleteCategory,
     categoryUsage,
     ensureDebtCategory,
+    getFeesCategoryId,
 
     // PAYCHECKS
     addPaycheck,

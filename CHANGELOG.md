@@ -4,6 +4,16 @@ Cada pedido de cambios sube la versión menor (1.1 → 1.2 → 1.3…) con
 `npm run version:bump`. La versión vive en `package.json` y de ahí la toman
 la app web, la PWA y el APK de Android (se ve en el menú y en la pantalla del PIN).
 
+## 1.5 — 2026-10-24
+
+- Comisión por cambio de moneda: cada tarjeta puede tener su porcentaje
+  (NU/Mastercard 0,45 %). Al registrar un gasto con la casilla "Compra en
+  moneda extranjera (USD)" se crea aparte la comisión, como la cobra el banco.
+- Categoría "Intereses y comisiones" se crea sola si no existe.
+- Gastos automáticos en dólares: se guarda el valor en USD y cada cobro se
+  convierte con la TRM oficial del día anterior (datos.gov.co), como lo hace
+  NU, más la comisión de la tarjeta como gasto aparte.
+
 ## 1.4 — 2026-10-24
 
 - Notificaciones: la cola se sube apenas vuelve el internet (Wi-Fi o datos

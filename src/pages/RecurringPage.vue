@@ -45,7 +45,10 @@
             <p class="rec-meta" v-else>Pausado</p>
           </div>
 
-          <div class="rec-amount">-{{ formatCurrency(rec.amount) }}</div>
+          <div class="rec-amount">
+            -{{ formatCurrency(rec.amount) }}
+            <small v-if="rec.currency === 'USD'">{{ rec.amountUsd }} USD · aprox.</small>
+          </div>
 
           <div class="rec-actions">
             <button
@@ -87,9 +90,30 @@
             </div>
 
             <div class="form-group">
+              <label>Moneda</label>
+              <select v-model="form.currency">
+                <option value="COP">Pesos (COP)</option>
+                <option value="USD">Dólares (USD)</option>
+              </select>
+            </div>
+
+            <div class="form-group" v-if="form.currency === 'USD'">
+              <label>Monto en USD *</label>
+              <input v-model.number="form.amountUsd" type="number" min="0" step="0.01" placeholder="20" />
+            </div>
+
+            <div class="form-group" v-else>
               <label>Monto *</label>
               <input v-model.number="form.amount" type="number" min="0" step="1000" placeholder="0" />
             </div>
+
+            <small v-if="form.currency === 'USD'" class="hint full">
+              <template v-if="trmToday && form.amountUsd > 0">
+                ≈ {{ formatCurrency(usdToCop(form.amountUsd, trmToday)) }} con la TRM de hoy ({{ trmToday }}).
+              </template>
+              Cada cobro se convierte con la TRM oficial del día anterior
+              <template v-if="feeRate > 0"> y se agrega la comisión del {{ feeRate }} % de la tarjeta</template>.
+            </small>
 
             <div class="form-group">
               <label>Día del cobro *</label>
@@ -153,12 +177,14 @@ import CategorySelect from '@/components/CategorySelect.vue'
 import { useFinanceStore } from '@/stores/finance'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import { addDaysISO, todayISO } from '@/utils/dates'
+import { trmForCharge, usdToCop } from '@/utils/exchange'
 import type { RecurringExpense } from '@/interfaces'
 
 const store = useFinanceStore()
 
 onMounted(async () => {
   await Promise.all([store.loadAccounts(), store.loadRecurringExpenses()])
+  trmToday.value = await trmForCharge(todayISO())
 })
 
 const icons = ['🎮', '🎬', '🎵', '📺', '☁️', '📱', '🏋️', '📰', '🛡️', '💡', '🌐', '🔁']
@@ -174,8 +200,14 @@ const defaultForm = () => ({
   accountId: '',
   category: '',
   icon: '🎮',
-  startDate: todayISO()
+  startDate: todayISO(),
+  currency: 'COP' as 'COP' | 'USD',
+  amountUsd: 0
 })
+
+// TRM de hoy para mostrar el valor aproximado en pesos de los cobros en USD
+const trmToday = ref<number | null>(null)
+const feeRate = computed(() => store.getAccountById(form.accountId)?.fxFeeRate || 0)
 
 const form = reactive(defaultForm())
 
@@ -198,7 +230,7 @@ const nextCharge = computed(() => {
 
 const isValid = computed(() =>
   form.name.trim() &&
-  form.amount > 0 &&
+  (form.currency === 'USD' ? form.amountUsd > 0 : form.amount > 0) &&
   Number.isInteger(form.dayOfMonth) &&
   form.dayOfMonth >= 1 &&
   form.dayOfMonth <= 31 &&
@@ -226,7 +258,9 @@ function openEdit(rec: RecurringExpense) {
     accountId: rec.accountId,
     category: rec.category,
     icon: rec.icon,
-    startDate: rec.startDate
+    startDate: rec.startDate,
+    currency: rec.currency || 'COP',
+    amountUsd: rec.amountUsd || 0
   })
   showModal.value = true
 }
@@ -242,6 +276,15 @@ async function save() {
 
   try {
     const data = { ...form, name: form.name.trim() }
+
+    // En USD, el monto en pesos es un estimado con la TRM de hoy (para el total
+    // mensual); cada cobro real se convierte con la TRM de su fecha
+    if (data.currency === 'USD') {
+      const trm = trmToday.value || await trmForCharge(todayISO())
+      if (trm) data.amount = usdToCop(data.amountUsd, trm)
+    } else {
+      data.amountUsd = 0
+    }
 
     if (editing.value) {
       const updates: Partial<RecurringExpense> = { ...data }
@@ -365,6 +408,16 @@ async function remove(rec: RecurringExpense) {
   color: var(--accent-red);
   white-space: nowrap;
 }
+
+.rec-amount small {
+  display: block;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-muted);
+  text-align: right;
+}
+
+.hint.full { grid-column: 1 / -1; }
 
 .rec-actions { display: flex; align-items: center; gap: 6px; }
 
