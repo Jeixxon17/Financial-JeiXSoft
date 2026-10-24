@@ -4,6 +4,14 @@ Cada pedido de cambios sube la versión menor (1.1 → 1.2 → 1.3…) con
 `npm run version:bump`. La versión vive en `package.json` y de ahí la toman
 la app web, la PWA y el APK de Android (se ve en el menú y en la pantalla del PIN).
 
+## 1.6 — 2026-10-24
+
+- Notificaciones: si HiOS reinicia el proceso de la app, Android cree que el
+  lector sigue conectado (a la conexión vieja) y no entrega nada. Ahora el
+  vigilante (cada 15 min), al abrir la app y al encender el celular se
+  comprueba que el lector esté conectado a este proceso y, si no, se fuerza
+  una conexión nueva; al reconectarse recoge lo que siga en el panel.
+
 ## 1.5 — 2026-10-24
 
 - Comisión por cambio de moneda: cada tarjeta puede tener su porcentaje

@@ -2,6 +2,7 @@ package com.jeixsoft.finance.notifications;
 
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.service.notification.NotificationListenerService;
 import android.util.Log;
 
@@ -36,18 +37,39 @@ public class KeepAliveWorker extends Worker {
     }
 
     public static void rebind(Context context) {
-        boolean granted = NotificationManagerCompat.getEnabledListenerPackages(context)
-            .contains(context.getPackageName());
-        if (!granted) return;
-
+        if (!isGranted(context)) return;
         NotificationListenerService.requestRebind(new ComponentName(context, BankNotificationService.class));
+    }
+
+    /**
+     * Asegura que el lector esté conectado a ESTE proceso. HiOS reinicia el
+     * proceso y Android sigue creyendo que el lector está conectado (a la
+     * conexión vieja), así que requestRebind no hace nada y no llegan
+     * notificaciones. Apagar y encender el componente fuerza una conexión nueva.
+     */
+    public static void ensureConnected(Context context) {
+        if (!isGranted(context) || BankNotificationService.getInstance() != null) return;
+
+        Log.w(TAG, "Lector sin conexión en este proceso: forzando reconexión");
+        ComponentName component = new ComponentName(context, BankNotificationService.class);
+        PackageManager pm = context.getPackageManager();
+        pm.setComponentEnabledSetting(component,
+            PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP);
+        pm.setComponentEnabledSetting(component,
+            PackageManager.COMPONENT_ENABLED_STATE_ENABLED, PackageManager.DONT_KILL_APP);
+        NotificationListenerService.requestRebind(component);
+    }
+
+    private static boolean isGranted(Context context) {
+        return NotificationManagerCompat.getEnabledListenerPackages(context)
+            .contains(context.getPackageName());
     }
 
     @NonNull
     @Override
     public Result doWork() {
-        Log.i(TAG, "Vigilante: reconectando lector");
-        rebind(getApplicationContext());
+        Log.i(TAG, "Vigilante: revisando lector");
+        ensureConnected(getApplicationContext());
 
         // Si el lector sigue vivo, repasa el panel por si se le pasó algo
         BankNotificationService service = BankNotificationService.getInstance();

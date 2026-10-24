@@ -22,7 +22,7 @@ public class BankNotificationsPlugin extends Plugin {
     @Override
     public void load() {
         // Si Android desconectó el lector, se le pide reconectarse al abrir la app
-        KeepAliveWorker.rebind(getContext());
+        KeepAliveWorker.ensureConnected(getContext());
         KeepAliveWorker.schedule(getContext());
         UploadWorker.uploadNow(getContext());
     }

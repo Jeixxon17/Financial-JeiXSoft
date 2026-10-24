@@ -9,7 +9,7 @@ public class BootReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
         KeepAliveWorker.schedule(context);
-        KeepAliveWorker.rebind(context);
+        KeepAliveWorker.ensureConnected(context);
         UploadWorker.uploadNow(context);
     }
 }
