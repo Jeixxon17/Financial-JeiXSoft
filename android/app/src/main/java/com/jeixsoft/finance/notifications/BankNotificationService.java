@@ -1,10 +1,16 @@
 package com.jeixsoft.finance.notifications;
 
 import android.app.Notification;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.NetworkCapabilities;
 import android.os.Bundle;
 import android.service.notification.NotificationListenerService;
 import android.service.notification.StatusBarNotification;
 import android.util.Log;
+
+import androidx.annotation.NonNull;
+import androidx.core.app.NotificationCompat;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -48,28 +54,36 @@ public class BankNotificationService extends NotificationListenerService {
     // Un movimiento siempre trae un monto: $1.000, COP27.800,00, 1,887,533.00
     private static final Pattern MONEY = Pattern.compile("(\\$|COP)\\s?\\d|\\d{1,3}([.,]\\d{3})+");
 
+    // Repaso del panel como mucho cada 2 minutos
+    private static final long SWEEP_INTERVAL_MS = 2 * 60 * 1000;
+
+    // Lector conectado en este proceso (lo usa el vigilante para repasar el panel)
+    private static volatile BankNotificationService instance;
+    private long lastSweep = 0;
+    private ConnectivityManager.NetworkCallback networkCallback;
+
+    public static BankNotificationService getInstance() {
+        return instance;
+    }
+
     @Override
     public void onListenerConnected() {
         Log.i(TAG, "Listener conectado");
+        instance = this;
         KeepAliveWorker.schedule(this);
+        watchNetwork();
 
         // Recupera lo que llegó mientras el lector estuvo caído y siga en el panel
         // (los ids fijos evitan subir dos veces la misma notificación)
-        try {
-            StatusBarNotification[] active = getActiveNotifications();
-            if (active != null) {
-                for (StatusBarNotification sbn : active) handle(sbn);
-            }
-        } catch (Exception e) {
-            Log.e(TAG, "Error recuperando notificaciones activas", e);
-        }
-
+        sweep(true);
         UploadWorker.uploadNow(this);
     }
 
     @Override
     public void onListenerDisconnected() {
         Log.w(TAG, "Listener desconectado: se pide reconectar");
+        instance = null;
+        unwatchNetwork();
         KeepAliveWorker.rebind(this);
     }
 
@@ -80,6 +94,63 @@ public class BankNotificationService extends NotificationListenerService {
         } catch (Exception e) {
             Log.e(TAG, "Error leyendo notificación", e);
         }
+        // Cualquier notificación (de cualquier app) sirve para repasar el panel
+        // por si el celular durmió el lector cuando llegó un SMS del banco
+        sweep(false);
+    }
+
+    /**
+     * Revisa las notificaciones que siguen en el panel y guarda las del banco
+     * que no se hayan visto. force=false respeta el intervalo mínimo.
+     */
+    public synchronized void sweep(boolean force) {
+        long now = System.currentTimeMillis();
+        if (!force && now - lastSweep < SWEEP_INTERVAL_MS) return;
+        lastSweep = now;
+
+        try {
+            StatusBarNotification[] active = getActiveNotifications();
+            if (active == null) return;
+            for (StatusBarNotification sbn : active) handle(sbn);
+        } catch (Exception e) {
+            Log.e(TAG, "Error repasando el panel", e);
+        }
+    }
+
+    // Sube la cola apenas Android confirma internet real (Wi-Fi o datos con saldo)
+    private void watchNetwork() {
+        if (networkCallback != null) return;
+        ConnectivityManager cm = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
+        if (cm == null) return;
+
+        networkCallback = new ConnectivityManager.NetworkCallback() {
+            @Override
+            public void onCapabilitiesChanged(@NonNull Network network, @NonNull NetworkCapabilities caps) {
+                if (caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+                    && PendingStore.get(BankNotificationService.this).getQueue().length() > 0) {
+                    Log.i(TAG, "Internet disponible: subiendo cola");
+                    UploadWorker.uploadNow(BankNotificationService.this);
+                }
+            }
+        };
+
+        try {
+            cm.registerDefaultNetworkCallback(networkCallback);
+        } catch (Exception e) {
+            Log.e(TAG, "No se pudo vigilar la red", e);
+            networkCallback = null;
+        }
+    }
+
+    private void unwatchNetwork() {
+        if (networkCallback == null) return;
+        ConnectivityManager cm = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
+        try {
+            if (cm != null) cm.unregisterNetworkCallback(networkCallback);
+        } catch (Exception ignored) {
+            // Ya estaba sin registrar
+        }
+        networkCallback = null;
     }
 
     private void handle(StatusBarNotification sbn) throws JSONException {
@@ -93,6 +164,19 @@ public class BankNotificationService extends NotificationListenerService {
 
         Bundle extras = notification.extras;
         String title = text(extras.getCharSequence(Notification.EXTRA_TITLE));
+
+        // Conversaciones de SMS (Google Mensajes): todos los mensajes del mismo
+        // número vienen en UNA notificación; se toma cada mensaje por separado
+        NotificationCompat.MessagingStyle style =
+            NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(notification);
+        if (style != null && !style.getMessages().isEmpty()) {
+            for (NotificationCompat.MessagingStyle.Message message : style.getMessages()) {
+                long time = message.getTimestamp() > 0 ? message.getTimestamp() : sbn.getPostTime();
+                save(pkg, title, text(message.getText()), time, isSms);
+            }
+            return;
+        }
+
         String body = text(extras.getCharSequence(Notification.EXTRA_BIG_TEXT));
         if (body.isEmpty()) body = text(extras.getCharSequence(Notification.EXTRA_TEXT));
         if (body.isEmpty()) {
@@ -104,6 +188,11 @@ public class BankNotificationService extends NotificationListenerService {
             }
         }
 
+        save(pkg, title, body, sbn.getPostTime(), isSms);
+    }
+
+    // Guarda en la cola un mensaje del banco (si trae un monto) y lo sube
+    private void save(String pkg, String title, String body, long time, boolean isSms) throws JSONException {
         String full = title + " " + body;
         if (body.isEmpty() || !MONEY.matcher(full).find()) return;
         if (isSms && !BANK_TEXT.matcher(full).find()) return;
@@ -114,9 +203,9 @@ public class BankNotificationService extends NotificationListenerService {
         item.put("bank", bankFor(pkg, full));
         item.put("title", title);
         item.put("text", body);
-        item.put("receivedAt", isoDate(sbn.getPostTime()));
+        item.put("receivedAt", isoDate(time));
 
-        if (new PendingStore(this).enqueue(item)) {
+        if (PendingStore.get(this).enqueue(item)) {
             Log.i(TAG, "Guardada notificación de " + pkg);
             UploadWorker.uploadNow(this);
         }

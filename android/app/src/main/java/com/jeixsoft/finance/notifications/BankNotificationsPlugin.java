@@ -41,8 +41,8 @@ public class BankNotificationsPlugin extends Plugin {
         JSObject result = new JSObject();
         result.put("permission", isPermissionGranted());
         result.put("battery", isIgnoringBatteryOptimizations());
-        result.put("session", new PendingStore(getContext()).hasSession());
-        result.put("queued", new PendingStore(getContext()).getQueue().length());
+        result.put("session", PendingStore.get(getContext()).hasSession());
+        result.put("queued", PendingStore.get(getContext()).getQueue().length());
         call.resolve(result);
     }
 
@@ -77,7 +77,7 @@ public class BankNotificationsPlugin extends Plugin {
             call.reject("Faltan datos de sesión");
             return;
         }
-        new PendingStore(getContext()).saveSession(apiKey, projectId, refreshToken);
+        PendingStore.get(getContext()).saveSession(apiKey, projectId, refreshToken);
         UploadWorker.uploadNow(getContext());
         call.resolve();
     }

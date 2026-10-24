@@ -48,6 +48,11 @@ public class KeepAliveWorker extends Worker {
     public Result doWork() {
         Log.i(TAG, "Vigilante: reconectando lector");
         rebind(getApplicationContext());
+
+        // Si el lector sigue vivo, repasa el panel por si se le pasó algo
+        BankNotificationService service = BankNotificationService.getInstance();
+        if (service != null) service.sweep(true);
+
         UploadWorker.uploadNow(getApplicationContext());
         return Result.success();
     }

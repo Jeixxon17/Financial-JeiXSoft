@@ -23,10 +23,20 @@ public class PendingStore {
     private static final String KEY_REFRESH_TOKEN = "refreshToken";
     private static final int MAX_UPLOADED_IDS = 500;
 
+    private static PendingStore shared;
     private final SharedPreferences prefs;
 
-    public PendingStore(Context context) {
+    private PendingStore(Context context) {
         prefs = context.getApplicationContext().getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    }
+
+    /**
+     * Una sola instancia por proceso: sus métodos synchronized comparten el
+     * candado, así guardar y marcar como subida nunca se pisan entre hilos.
+     */
+    public static synchronized PendingStore get(Context context) {
+        if (shared == null) shared = new PendingStore(context);
+        return shared;
     }
 
     // --- Cola ---

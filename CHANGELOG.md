@@ -4,6 +4,20 @@ Cada pedido de cambios sube la versión menor (1.1 → 1.2 → 1.3…) con
 `npm run version:bump`. La versión vive en `package.json` y de ahí la toman
 la app web, la PWA y el APK de Android (se ve en el menú y en la pantalla del PIN).
 
+## 1.4 — 2026-10-24
+
+- Notificaciones: la cola se sube apenas vuelve el internet (Wi-Fi o datos
+  con saldo), sin esperar los reintentos. Antes, sin datos, los reintentos se
+  espaciaban hasta horas.
+- El lector repasa el panel cada vez que llega cualquier notificación (máx.
+  cada 2 min) y en cada pasada del vigilante, para recoger los SMS del banco
+  que se le pasaron mientras el celular lo tenía dormido.
+- Reintentos de subida fijos cada minuto.
+- SMS: Google Mensajes junta todos los mensajes del mismo número en una sola
+  notificación; ahora se lee cada mensaje por separado (antes solo el último).
+- "Por confirmar": al tocar Descartar se pide confirmación, para no borrar un
+  movimiento por un toque accidental.
+
 ## 1.3 — 2026-10-22
 
 - Tarjetas: el pago mínimo del extracto solo ajusta lo facturado, ya no crea

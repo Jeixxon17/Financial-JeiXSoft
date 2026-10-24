@@ -66,7 +66,7 @@
           <p class="pending-text">{{ item.title }} · {{ item.text }}</p>
 
           <div class="pending-actions">
-            <button class="btn-ghost" @click="store.dismissPendingTransaction(item.id)">Descartar</button>
+            <button class="btn-ghost" @click="toDiscard = item">Descartar</button>
             <button class="btn-primary" @click="selected = item">Registrar</button>
           </div>
         </div>
@@ -87,6 +87,30 @@
     @saved="store.dismissPendingTransaction(selected!.id)"
     @close="selected = null"
   />
+
+  <!-- Confirmación antes de descartar: evita borrar algo por un toque accidental -->
+  <Teleport to="body">
+    <div v-if="toDiscard" class="confirm-overlay" @click.self="toDiscard = null">
+      <div class="confirm-dialog" role="alertdialog" aria-labelledby="discard-title">
+        <h3 id="discard-title">¿Descartar este movimiento?</h3>
+        <p class="confirm-item">
+          <strong>{{ toDiscard.description || toDiscard.title || 'Movimiento' }}</strong>
+          <span v-if="toDiscard.amount !== null" :class="toDiscard.type || ''">
+            {{ formatCurrency(toDiscard.amount) }}
+          </span>
+        </p>
+        <p class="confirm-text">
+          Se quitará de "Por confirmar" y no se registrará. Esta acción no se puede deshacer.
+        </p>
+        <div class="confirm-actions">
+          <button class="btn-ghost" @click="toDiscard = null">Cancelar</button>
+          <button class="btn-danger" :disabled="discarding" @click="confirmDiscard">
+            {{ discarding ? 'Descartando…' : 'Sí, descartar' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
@@ -110,6 +134,19 @@ type PendingItem = PendingTransaction & ParsedNotification & { bank: 'bancolombi
 
 const store = useFinanceStore()
 const selected = ref<PendingItem | null>(null)
+const toDiscard = ref<PendingItem | null>(null)
+const discarding = ref(false)
+
+async function confirmDiscard() {
+  if (!toDiscard.value) return
+  discarding.value = true
+  try {
+    await store.dismissPendingTransaction(toDiscard.value.id)
+    toDiscard.value = null
+  } finally {
+    discarding.value = false
+  }
+}
 const status = ref<Awaited<ReturnType<typeof getNotificationStatus>>>(null)
 
 const allReady = computed(() => !!status.value?.permission && status.value.battery && status.value.session)
@@ -361,6 +398,88 @@ function prefillFor(item: PendingItem): Partial<Transaction> {
   opacity: 0.5;
   margin-bottom: 8px;
 }
+
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+}
+
+.confirm-dialog {
+  width: 100%;
+  max-width: 380px;
+  padding: 20px;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+}
+
+.confirm-dialog h3 {
+  font-size: 17px;
+  color: var(--text-primary);
+  margin-bottom: 14px;
+}
+
+.confirm-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--bg-elevated);
+  margin-bottom: 12px;
+}
+
+.confirm-item strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.confirm-item span {
+  flex-shrink: 0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.confirm-item span.income { color: var(--accent-green); }
+.confirm-item span.expense { color: var(--accent-red); }
+
+.confirm-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 18px;
+}
+
+.confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.btn-danger {
+  border: none;
+  border-radius: 10px;
+  padding: 9px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--accent-red);
+  color: #fff;
+}
+
+.btn-danger:disabled { opacity: 0.6; cursor: default; }
 
 @media (max-width: 480px) {
   .status-card {

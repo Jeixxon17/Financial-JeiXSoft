@@ -44,7 +44,8 @@ public class UploadWorker extends Worker {
     public static void enqueue(Context context) {
         OneTimeWorkRequest request = new OneTimeWorkRequest.Builder(UploadWorker.class)
             .setConstraints(new Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
-            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
+            // Reintento fijo cada minuto (exponencial llegaba a esperar horas)
+            .setBackoffCriteria(BackoffPolicy.LINEAR, 60, TimeUnit.SECONDS)
             .build();
 
         WorkManager.getInstance(context.getApplicationContext())
@@ -70,7 +71,7 @@ public class UploadWorker extends Worker {
 
     /** Sube toda la cola. true si no quedó nada pendiente por error. */
     private static synchronized boolean uploadQueue(Context context) {
-        PendingStore store = new PendingStore(context);
+        PendingStore store = PendingStore.get(context);
         JSONArray queue = store.getQueue();
         if (queue.length() == 0) return true;
 
@@ -82,23 +83,27 @@ public class UploadWorker extends Worker {
 
         try {
             String idToken = refreshIdToken(store);
-            boolean allUploaded = true;
 
-            for (int i = 0; i < queue.length(); i++) {
-                JSONObject item = queue.getJSONObject(i);
-                int status = upload(store.getProjectId(), idToken, item);
+            // Se repite hasta vaciar la cola: pueden llegar notificaciones
+            // nuevas mientras se sube
+            while (queue.length() > 0) {
+                for (int i = 0; i < queue.length(); i++) {
+                    JSONObject item = queue.getJSONObject(i);
+                    int status = upload(store.getProjectId(), idToken, item);
 
-                // 409: ya existía en Firestore (subida antes)
-                if (status == 200 || status == 409) {
-                    store.markUploaded(item.getString("id"));
-                    Log.i(TAG, "Subida " + item.getString("id") + " (" + status + ")");
-                } else {
-                    allUploaded = false;
-                    Log.w(TAG, "Firestore respondió " + status);
+                    // 409: ya existía en Firestore (subida antes)
+                    if (status == 200 || status == 409) {
+                        store.markUploaded(item.getString("id"));
+                        Log.i(TAG, "Subida " + item.getString("id") + " (" + status + ")");
+                    } else {
+                        Log.w(TAG, "Firestore respondió " + status);
+                        return false;
+                    }
                 }
+                queue = store.getQueue();
             }
 
-            return allUploaded;
+            return true;
         } catch (Exception e) {
             Log.e(TAG, "Error subiendo notificaciones: " + e.getMessage());
             return false;
