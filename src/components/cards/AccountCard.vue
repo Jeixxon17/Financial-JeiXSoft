@@ -7,6 +7,7 @@
         <span class="acc-type">{{ typeLabel }}</span>
       </div>
       <div class="acc-actions">
+        <button v-if="account.type === 'credit'" @click="$emit('statement', account)" class="action-btn" title="Subir extracto">📄</button>
         <button @click="$emit('edit', account)" class="action-btn">✏️</button>
         <button @click="$emit('delete', account.id)" class="action-btn danger">🗑️</button>
       </div>
@@ -106,7 +107,7 @@ import { formatCurrency } from '@/utils/formatters'
 import { useFinanceStore } from '@/stores/finance'
 
 const props = defineProps<{ account: Account }>()
-defineEmits(['edit', 'delete'])
+defineEmits(['edit', 'delete', 'statement'])
 
 const typeLabels: Record<string, string> = {
   debit: 'Débito',

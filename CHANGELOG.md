@@ -4,6 +4,18 @@ Cada pedido de cambios sube la versión menor (1.1 → 1.2 → 1.3…) con
 `npm run version:bump`. La versión vive en `package.json` y de ahí la toman
 la app web, la PWA y el APK de Android (se ve en el menú y en la pantalla del PIN).
 
+## 1.7 — 2026-10-29
+
+- Subir extracto (📄 en cada tarjeta de crédito): se lee el PDF del banco en
+  el propio dispositivo (pdf.js, con contraseña si la tiene; nada se guarda
+  ni se envía). Por ahora extractos de NU.
+- Compara cada movimiento con los de la app (monto ±1 peso, fecha cercana):
+  los ya registrados no se tocan, los nuevos se agregan con categoría
+  sugerida, los pagos se registran como transferencia desde la cuenta que
+  elijas y los que están en la app pero no en el extracto se pueden quitar.
+- Fija el pago mínimo y la fecha límite del corte y cuadra la deuda al corte
+  con la del extracto (las compras del día del corte van al siguiente).
+
 ## 1.6 — 2026-10-24
 
 - Notificaciones: si HiOS reinicia el proceso de la app, Android cree que el

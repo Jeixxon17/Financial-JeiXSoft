@@ -77,6 +77,27 @@ export function creditInterestUntil(
   ).interest
 }
 
+/**
+ * Deuda de la tarjeta al final del día `untilISO` (YYYY-MM-DD): compras y
+ * deuda diferida hasta esa fecha, menos pagos, más los intereses de las
+ * cuotas facturadas hasta el corte de ese día. Sirve para cuadrar con la
+ * "deuda total al corte" de un extracto.
+ */
+export function creditDebtUntil(account: Account, transactions: Transaction[], untilISO: string): number {
+  if (account.type !== 'credit' || !account.cutoffDate) return 0
+
+  const txs = creditTransactions(account, transactions).filter(t => t.date <= untilISO)
+  const dayAfter = parseISODate(untilISO)
+  dayAfter.setDate(dayAfter.getDate() + 1)
+  const cutoff = lastCutoffBefore(dayAfter, account.cutoffDate)
+
+  const movements = txs.reduce((sum, t) =>
+    t.type === 'expense' ? sum + t.amount : t.type === 'income' ? sum - t.amount : sum, 0)
+  const interest = billedPartsUntil(txs, account.cutoffDate, monthIndexOf(cutoff)).interest
+
+  return movements + interest
+}
+
 // Movimientos de la tarjeta más la deuda diferida, que se factura como una
 // compra a cuotas sin contar como gasto en las estadísticas
 export function creditTransactions(account: Account, transactions: Transaction[]): Transaction[] {
