@@ -205,6 +205,7 @@
 
 <script setup lang="ts">
 import { ref, computed, reactive, watch } from 'vue'
+import { showAdvice } from '@/services/advisorToast'
 import { useFinanceStore } from '@/stores/finance'
 import { formatCurrency, getCurrentMonth } from '@/utils/formatters'
 import CategorySelect from '@/components/CategorySelect.vue'
@@ -273,7 +274,8 @@ watch(
   () => [form.accountId, form.installments],
   () => {
     if (rateTouched.value || !showInstallments.value) return
-    form.interestRate = form.installments > 1 ? selectedAccount.value?.interestRate || 0 : 0
+    const freeUpTo = selectedAccount.value?.interestFreeInstallments || 1
+    form.interestRate = form.installments > freeUpTo ? selectedAccount.value?.interestRate || 0 : 0
   }
 )
 
@@ -415,6 +417,9 @@ async function save() {
     }
     await store.addTransaction(fee)
   }
+
+  // El asesor comenta cada gasto nuevo (presupuesto, ritmo del mes, deuda)
+  if (!editing) showAdvice(store.feedbackFor(data))
 
   emit('saved')
   emit('close')

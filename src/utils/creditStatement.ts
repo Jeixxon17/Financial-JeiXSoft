@@ -1,5 +1,5 @@
 import type { Account, Transaction } from '@/interfaces'
-import { installmentsBilled } from './installments'
+import { installmentSchedule, installmentsBilled } from './installments'
 import { dateInMonth, daysBetween, monthIndexOf, parseISODate, toISODate } from './dates'
 
 export interface CreditStatement {
@@ -115,6 +115,57 @@ export function creditTransactions(account: Account, transactions: Transaction[]
   }))
 
   return [...transactions.filter(t => t.accountId === account.id), ...deferred]
+}
+
+// Fecha límite de pago del corte (el primer día de pago después del corte)
+function dueDateFor(cutoff: Date, paymentDay?: number): Date {
+  if (!paymentDay) return cutoff
+  const sameMonth = dateInMonth(cutoff.getFullYear(), cutoff.getMonth(), paymentDay)
+  return sameMonth > cutoff ? sameMonth : dateInMonth(cutoff.getFullYear(), cutoff.getMonth() + 1, paymentDay)
+}
+
+// Capital de las cuotas de una compra cuya fecha de pago está en (from, to]:
+// el banco lo da por pagado y libera ese cupo
+function capitalDueBetween(account: Account, tx: Transaction, from: Date | null, to: Date): number {
+  const first = firstCutoffFor(parseISODate(tx.date), account.cutoffDate!)
+  return installmentSchedule(tx.amount, tx.installments || 1, tx.interestRate || 0)
+    .reduce((sum, row) => {
+      const due = dueDateFor(dateInMonth(first.getFullYear(), first.getMonth() + row.number - 1, account.cutoffDate!), account.paymentDate)
+      return due <= to && (!from || due > from) ? sum + row.capital : sum
+    }, 0)
+}
+
+/**
+ * Capital pendiente de los créditos aparte del cupo (deuda diferida con
+ * `outsideLimit`): su valor menos las cuotas cuya fecha de pago ya pasó.
+ */
+export function outsideLimitDebt(account: Account, today: Date = new Date()): number {
+  if (account.type !== 'credit' || !account.cutoffDate) return 0
+
+  return creditTransactions(account, [])
+    .filter(t => account.deferredDebts?.find(d => d.id === t.id)?.outsideLimit)
+    .reduce((sum, t) => sum + Math.max(0, t.amount - capitalDueBetween(account, t, null, today)), 0)
+}
+
+/**
+ * Cupo gastado a partir del que mostró el banco (`limitUsedAnchor`): suben
+ * las compras posteriores y baja el capital de las cuotas que vencen desde
+ * entonces. Intereses, comisiones y créditos aparte del cupo no cuentan.
+ */
+export function limitUsedFromAnchor(account: Account, transactions: Transaction[], today: Date = new Date()): number | null {
+  const anchor = account.limitUsedAnchor
+  if (account.type !== 'credit' || !account.cutoffDate || !anchor) return null
+
+  const anchorDate = parseISODate(anchor.date)
+  const separate = new Set((account.deferredDebts || []).filter(d => d.outsideLimit).map(d => d.id))
+  const todayISO = toISODate(today)
+
+  const used = creditTransactions(account, transactions)
+    .filter(t => t.type === 'expense' && !separate.has(t.id) && !t.tags.includes('comisión') && t.date <= todayISO)
+    .reduce((sum, t) =>
+      sum + (t.date > anchor.date ? t.amount : 0) - capitalDueBetween(account, t, anchorDate, today), anchor.amount)
+
+  return Math.max(0, Math.round(used))
 }
 
 function paidUntil(accountTxs: Transaction[], dateISO: string): number {

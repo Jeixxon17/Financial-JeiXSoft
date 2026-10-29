@@ -319,12 +319,12 @@ export const mockPaychecks: Paycheck[] = [
 ]
 
 export const mockBudgets: Budget[] = [
-  { id: 'bud-1', categoryId: 'cat-4', amount: 800000, month: thisMonth, spent: 750000 },
-  { id: 'bud-2', categoryId: 'cat-5', amount: 200000, month: thisMonth, spent: 120000 },
-  { id: 'bud-3', categoryId: 'cat-6', amount: 300000, month: thisMonth, spent: 180000 },
-  { id: 'bud-4', categoryId: 'cat-7', amount: 100000, month: thisMonth, spent: 90000 },
-  { id: 'bud-5', categoryId: 'cat-8', amount: 80000, month: thisMonth, spent: 28800 },
-  { id: 'bud-6', categoryId: 'cat-9', amount: 200000, month: thisMonth, spent: 85000 },
-  { id: 'bud-7', categoryId: 'cat-10', amount: 500000, month: thisMonth, spent: 320000 },
-  { id: 'bud-8', categoryId: 'cat-14', amount: 200000, month: thisMonth, spent: 85000 }
+  { id: 'bud-1', categoryId: 'cat-4', amount: 800000, month: thisMonth },
+  { id: 'bud-2', categoryId: 'cat-5', amount: 200000, month: thisMonth },
+  { id: 'bud-3', categoryId: 'cat-6', amount: 300000, month: thisMonth },
+  { id: 'bud-4', categoryId: 'cat-7', amount: 100000, month: thisMonth },
+  { id: 'bud-5', categoryId: 'cat-8', amount: 80000, month: thisMonth },
+  { id: 'bud-6', categoryId: 'cat-9', amount: 200000, month: thisMonth },
+  { id: 'bud-7', categoryId: 'cat-10', amount: 500000, month: thisMonth },
+  { id: 'bud-8', categoryId: 'cat-14', amount: 200000, month: thisMonth }
 ]

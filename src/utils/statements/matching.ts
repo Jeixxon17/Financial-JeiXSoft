@@ -105,18 +105,23 @@ export function buildImportRows(
 /**
  * Movimientos de la app que no aparecen en el extracto.
  * - inPeriod: dentro del periodo (antes del día de corte): para revisar.
- * - nextPeriod: del mismo día del corte; el banco los cobra en el siguiente
- *   extracto, así que no cuentan para la deuda al corte.
+ * - nextPeriod: del día del corte hasta la fecha del extracto; el banco los
+ *   cobra en el siguiente extracto.
  */
-export function unmatchedTxs(statement: ParsedStatement, accountTxs: Transaction[], rows: ImportRow[]) {
+export function unmatchedTxs(
+  statement: ParsedStatement,
+  accountTxs: Transaction[],
+  rows: ImportRow[],
+  billingCutoff: string = statement.cutoffDate
+) {
   const matched = new Set(rows.filter(r => r.match).map(r => r.match!.id))
   const unmatched = accountTxs
     .filter(t => t.date >= statement.periodStart && t.date <= statement.cutoffDate && !matched.has(t.id))
     .sort((a, b) => a.date.localeCompare(b.date))
 
   return {
-    inPeriod: unmatched.filter(t => t.date < statement.cutoffDate),
-    nextPeriod: unmatched.filter(t => t.date === statement.cutoffDate)
+    inPeriod: unmatched.filter(t => t.date < billingCutoff),
+    nextPeriod: unmatched.filter(t => t.date >= billingCutoff)
   }
 }
 

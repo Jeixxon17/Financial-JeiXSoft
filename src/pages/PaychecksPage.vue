@@ -132,6 +132,19 @@
               </div>
             </div>
 
+            <router-link v-if="savingsHalf > 0" to="/budgets" class="payment-item savings-item">
+              <div class="payment-left">
+                <div class="payment-icon">🎯</div>
+                <div>
+                  <p class="payment-name">Ahorro de metas</p>
+                  <span class="payment-category">{{ goalNames }}</span>
+                </div>
+              </div>
+              <div class="payment-right">
+                <strong class="mono">{{ formatCurrency(savingsHalf) }}</strong>
+              </div>
+            </router-link>
+
             <div v-if="!quincena15.length" class="empty-payments">
               Sin obligaciones registradas
             </div>
@@ -215,6 +228,19 @@
                 </div>
               </div>
             </div>
+
+            <router-link v-if="savingsHalf > 0" to="/budgets" class="payment-item savings-item">
+              <div class="payment-left">
+                <div class="payment-icon">🎯</div>
+                <div>
+                  <p class="payment-name">Ahorro de metas</p>
+                  <span class="payment-category">{{ goalNames }}</span>
+                </div>
+              </div>
+              <div class="payment-right">
+                <strong class="mono">{{ formatCurrency(savingsHalf) }}</strong>
+              </div>
+            </router-link>
 
             <div v-if="!quincena30.length" class="empty-payments">
               Sin obligaciones registradas
@@ -409,7 +435,7 @@ import {
 
 import AppLayout from '@/layouts/AppLayout.vue'
 import { useFinanceStore } from '@/stores/finance'
-import { formatCurrency } from '@/utils/formatters'
+import { formatCurrency, getCurrentMonth } from '@/utils/formatters'
 
 const store = useFinanceStore()
 
@@ -509,12 +535,18 @@ const quincena30 = computed(() =>
   store.quincena30Debts
 )
 
+// Ahorro de las metas del mes, repartido en las dos quincenas
+const savingsHalf = computed(() => Math.round(store.goalsSavingsFor(getCurrentMonth()) / 2))
+const goalNames = computed(() =>
+  store.savingsGoals.filter(g => g.active).map(g => `${g.icon} ${g.name}`).join(' · ')
+)
+
 const quincena15Total = computed(() =>
-  store.quincena15Total
+  store.quincena15Total + savingsHalf.value
 )
 
 const quincena30Total = computed(() =>
-  store.quincena30Total
+  store.quincena30Total + savingsHalf.value
 )
 
 const quincena15Percent = computed(() => {
@@ -993,6 +1025,10 @@ function closeDeductionModal() {
 .modal {
   width: 100%;
   max-width: 520px;
+  max-height: calc(100dvh - 32px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: 20px;
@@ -1007,6 +1043,9 @@ function closeDeductionModal() {
 
 .modal-body {
   padding: 24px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .modal-footer {
@@ -1141,4 +1180,6 @@ function closeDeductionModal() {
     font-size: 13px;
   }
 }
+
+.savings-item { text-decoration: none; border-style: dashed; }
 </style>

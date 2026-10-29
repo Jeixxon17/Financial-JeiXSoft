@@ -10,7 +10,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/recurring', name: 'Recurring', component: () => import('@/pages/RecurringPage.vue'), meta: { title: 'Gastos automáticos', icon: '🔁' } },
   { path: '/categories', name: 'Categories', component: () => import('@/pages/CategoriesPage.vue'), meta: { title: 'Categorías', icon: '🏷️' } },
   { path: '/paychecks', name: 'Paychecks', component: () => import('@/pages/PaychecksPage.vue'), meta: { title: 'Quincenas', icon: '💸' } },
-  { path: '/budgets', name: 'Budgets', component: () => import('@/pages/BudgetsPage.vue'), meta: { title: 'Presupuestos', icon: '🎯' } },
+  { path: '/budgets', name: 'Budgets', component: () => import('@/pages/BudgetsPage.vue'), meta: { title: 'Presupuesto y ahorro', icon: '🎯' } },
   { path: '/analytics', name: 'Analytics', component: () => import('@/pages/AnalyticsPage.vue'), meta: { title: 'Estadísticas', icon: '📈' } }
 ]
 

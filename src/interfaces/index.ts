@@ -14,12 +14,18 @@ export interface Account {
   totalToPay?: number
   // Interés mensual (%) de las compras a cuotas con intereses
   interestRate?: number
+  // Compras hasta este número de cuotas no cobran interés (ej: ADDI a 3 cuotas)
+  interestFreeInstallments?: number
   // Comisión (%) por compras en moneda extranjera (ej: NU/Mastercard 0,45 %)
   fxFeeRate?: number
   // Pago mínimo real de cada extracto, por fecha de corte (YYYY-MM-DD)
   statementMinimums?: Record<string, number>
   // Deuda que el banco cobra por cuotas y no está en los movimientos
   deferredDebts?: DeferredDebt[]
+  // Cupo gastado que muestra el banco en una fecha (solo capital, ej: ADDI).
+  // Desde ahí: las compras lo suben y el capital de cada cuota lo libera al
+  // pasar su fecha de pago; intereses, comisiones y créditos aparte no cuentan
+  limitUsedAnchor?: { amount: number; date: string }
   // Últimos 4 dígitos, para reconocer la cuenta en las notificaciones del banco
   lastDigits?: string
 }
@@ -44,6 +50,11 @@ export interface DeferredDebt {
   installments: number
   // Fecha desde la que se factura (como la fecha de una compra)
   date: string
+  // Crédito aparte del cupo (ej: el Crédito Grande de ADDI): cuenta como deuda
+  // pero no le quita cupo disponible a la tarjeta
+  outsideLimit?: boolean
+  // Nombre con el que aparece en el extracto (ej: "Marketplace Addi")
+  statementName?: string
 }
 
 export interface Transaction {
@@ -100,12 +111,50 @@ export interface Paycheck {
   spent: number
 }
 
+// Tope de gasto de una categoría. Sin `month` aplica a todos los meses; con
+// `month` (YYYY-MM) solo a ese mes y reemplaza al de todos los meses
 export interface Budget {
   id: string
   categoryId: string
   amount: number
-  month: string
-  spent: number
+  month?: string
+}
+
+// Meta de ahorro (ej: Mundial 2030, viaje a Punta Cana)
+export interface SavingsGoal {
+  id: string
+  name: string
+  icon: string
+  color: string
+  // Total a reunir. Si hay desglose, es la suma de sus partes
+  targetAmount: number
+  // Fecha en que se necesita el dinero (YYYY-MM-DD)
+  targetDate: string
+  // Desde cuándo se empieza a ahorrar (YYYY-MM-DD)
+  startDate: string
+  // En qué se va el dinero (vuelos, hotel, entradas...)
+  items: SavingsGoalItem[]
+  // Abonos hechos a la meta
+  contributions: SavingsContribution[]
+  notes?: string
+  active: boolean
+  // Fondo de emergencia: su total son `months` meses de sueldo neto y solo
+  // pide ahorro cuando ya no hay deudas grandes
+  kind?: 'emergency'
+  months?: number
+}
+
+export interface SavingsGoalItem {
+  id: string
+  name: string
+  amount: number
+}
+
+export interface SavingsContribution {
+  id: string
+  date: string
+  // Negativo si se saca dinero de la meta
+  amount: number
 }
 
 export interface FinancialSummary {

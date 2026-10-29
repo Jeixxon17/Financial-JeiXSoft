@@ -9,10 +9,32 @@ import type {
   Budget,
   RecurringExpense,
   PendingTransaction,
+  SavingsGoal,
 } from "@/interfaces";
+import {
+  createBudgetService,
+  deleteBudgetService,
+  getBudgetsService,
+  updateBudgetService,
+} from "@/services/budget.service";
+import {
+  createSavingsGoalService,
+  deleteSavingsGoalService,
+  getSavingsGoalsService,
+  updateSavingsGoalService,
+} from "@/services/savings.service";
+import {
+  advise,
+  averageSpending,
+  budgetFor,
+  emergencyInfo,
+  goalMonthlyFor,
+  monthPlan,
+  spendingFeedback,
+} from "@/utils/plan";
 
 import { getCurrentMonth, getMonthRange } from "@/utils/formatters";
-import { calculateCreditStatement, creditInterestUntil, creditTransactions } from "@/utils/creditStatement";
+import { calculateCreditStatement, creditInterestUntil, creditTransactions, limitUsedFromAnchor, outsideLimitDebt } from "@/utils/creditStatement";
 import { fxFee, trmForCharge, usdToCop } from "@/utils/exchange";
 import {
   addDaysISO,
@@ -184,6 +206,7 @@ export const useFinanceStore = defineStore("finance", () => {
   const paychecks = ref<Paycheck[]>([]);
   const budgets = ref<Budget[]>([]);
   const recurringExpenses = ref<RecurringExpense[]>([]);
+  const savingsGoals = ref<SavingsGoal[]>([]);
   // Movimientos leídos de notificaciones del celular, esperando confirmación
   const pendingTransactions = ref<PendingTransaction[]>([]);
   const selectedMonth = ref<string>(getCurrentMonth());
@@ -466,9 +489,16 @@ const remaining = computed(() =>
   // BUDGET PROGRESS
   // =========================================
 
+  // Presupuestos del mes: el propio del mes o, si no hay, el de todos los meses
+  const monthBudgets = computed(() => {
+    const ids = [...new Set(budgets.value.map((b) => b.categoryId))];
+    return ids
+      .map((id) => budgetFor(budgets.value, id, selectedMonth.value))
+      .filter((b): b is Budget => !!b);
+  });
+
   const budgetProgress = computed(() => {
-    return budgets.value
-      .filter((b) => b.month === selectedMonth.value)
+    return monthBudgets.value
       .map((b) => {
         const category = categories.value.find((c) => c.id === b.categoryId);
 
@@ -760,6 +790,8 @@ const remaining = computed(() =>
       loadPaychecks(),
       loadCategories(),
       loadPendingTransactions(),
+      loadBudgets(),
+      loadSavingsGoals(),
     ]);
     await migrateCategories(categories.value.length === 0);
     await processRecurringExpenses();
@@ -942,8 +974,147 @@ const remaining = computed(() =>
   // BUDGETS
   // =========================================
 
+  async function loadBudgets() {
+    try {
+      budgets.value = await getBudgetsService();
+    } catch (error) {
+      console.error("Error loading budgets", error);
+    }
+  }
+
+  // Guarda el presupuesto de la categoría (de todos los meses o de uno)
   async function saveBudget(bud: Omit<Budget, "id">) {
-    console.log("TODO FIREBASE BUDGET SAVE", bud);
+    const data: Omit<Budget, "id"> = { categoryId: bud.categoryId, amount: bud.amount };
+    if (bud.month) data.month = bud.month;
+    const existing = budgets.value.find(
+      (b) => b.categoryId === bud.categoryId && (b.month || "") === (bud.month || ""),
+    );
+    if (existing) await updateBudgetService(existing.id, data);
+    else await createBudgetService(data);
+    await loadBudgets();
+  }
+
+  async function deleteBudget(id: string) {
+    await deleteBudgetService(id);
+    await loadBudgets();
+  }
+
+  // =========================================
+  // METAS DE AHORRO
+  // =========================================
+
+  async function loadSavingsGoals() {
+    try {
+      savingsGoals.value = (await getSavingsGoalsService())
+        .map((g) => ({ ...g, items: g.items || [], contributions: g.contributions || [] }))
+        .sort((a, b) => a.targetDate.localeCompare(b.targetDate));
+    } catch (error) {
+      console.error("Error loading savings goals", error);
+    }
+  }
+
+  async function addSavingsGoal(goal: Omit<SavingsGoal, "id">) {
+    await createSavingsGoalService(goal);
+    await loadSavingsGoals();
+  }
+
+  async function updateSavingsGoal(id: string, updates: Partial<SavingsGoal>) {
+    await updateSavingsGoalService(id, updates);
+    await loadSavingsGoals();
+  }
+
+  async function deleteSavingsGoal(id: string) {
+    await deleteSavingsGoalService(id);
+    await loadSavingsGoals();
+  }
+
+  // Ahorro que piden las metas en el mes (para el plan y las quincenas)
+  function goalsSavingsFor(monthKey: string): number {
+    return savingsGoals.value.reduce(
+      (sum, g) => sum + goalMonthlyFor(g, monthKey, todayISO(), emergencyFund.value),
+      0,
+    );
+  }
+
+  // =========================================
+  // PLAN DEL MES Y ASESOR
+  // =========================================
+
+  const monthObligations = computed(() => quincena15Total.value + quincena30Total.value);
+
+  // Fondo de emergencia: bloqueado mientras haya deudas grandes o déficit
+  const emergencyFund = computed(() =>
+    emergencyInfo({
+      netIncome: netSalary.value,
+      obligations: monthObligations.value,
+      creditDebt: totalDebt.value,
+      months: savingsGoals.value.find((g) => g.kind === "emergency")?.months,
+    }),
+  );
+
+  function planFor(monthKey: string) {
+    return monthPlan({
+      monthKey,
+      netIncome: netSalary.value,
+      obligations: monthObligations.value,
+      goals: savingsGoals.value,
+      accounts: accounts.value,
+      transactions: transactions.value,
+      todayISO: todayISO(),
+      emergency: emergencyFund.value,
+    });
+  }
+
+  const currentPlan = computed(() => planFor(selectedMonth.value));
+
+  // Fracción del mes que ya pasó (0..1)
+  function monthProgressOf(monthKey: string): number {
+    const current = getCurrentMonth();
+    if (monthKey < current) return 1;
+    if (monthKey > current) return 0;
+    const now = new Date();
+    return now.getDate() / new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+  }
+
+  const advisorTips = computed(() =>
+    advise({
+      plan: currentPlan.value,
+      goals: savingsGoals.value,
+      accounts: accounts.value,
+      creditDebt: accounts.value
+        .filter((a) => a.type === "credit")
+        .map((a) => ({
+          account: a,
+          debt: calculateAccountBalance(a.id).usedCredit,
+          minimum: calculateCreditStatement(a, transactions.value).minimumPayment,
+        })),
+      budgets: budgetProgress.value,
+      average: averageSpending(transactions.value, selectedMonth.value),
+      spentByCategory: expensesByCategory.value,
+      categories: categories.value,
+      todayISO: todayISO(),
+      monthProgress: monthProgressOf(selectedMonth.value),
+      emergency: emergencyFund.value,
+    }),
+  );
+
+  // Alertas del asesor para un gasto recién registrado
+  function feedbackFor(tx: Pick<Transaction, "type" | "amount" | "category" | "accountId" | "date">) {
+    const monthKey = tx.date.slice(0, 7);
+    const categorySpent = transactions.value
+      .filter((t) => t.type === "expense" && t.category === tx.category && t.date.startsWith(monthKey))
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    return spendingFeedback({
+      tx,
+      plan: planFor(monthKey),
+      budget: budgetFor(budgets.value, tx.category, monthKey),
+      categorySpent,
+      categoryAverage: averageSpending(transactions.value, monthKey)[tx.category] || 0,
+      category: getCategoryById(tx.category),
+      isCredit: accounts.value.find((a) => a.id === tx.accountId)?.type === "credit",
+      monthProgress: monthProgressOf(monthKey),
+    });
   }
 
   // =========================================
@@ -987,6 +1158,8 @@ const remaining = computed(() =>
       return {
         balance: 0,
         usedCredit: 0,
+        separateDebt: 0,
+        limitUsed: 0,
         availableCredit: 0,
       };
     }
@@ -1016,9 +1189,20 @@ const remaining = computed(() =>
 
       usedCredit = Math.round(usedCredit);
 
+      // Créditos aparte del cupo (Crédito Grande de ADDI): son deuda pero no
+      // gastan cupo
+      const separateDebt = Math.min(usedCredit, Math.round(outsideLimitDebt(account)));
+
+      // Cupo gastado: el que reportó el banco si lo hay (solo capital); si no,
+      // la deuda sin los créditos aparte
+      const limitUsed =
+        limitUsedFromAnchor(account, transactions.value) ?? usedCredit - separateDebt;
+
       return {
         usedCredit,
-        availableCredit: (account.creditLimit || 0) - usedCredit,
+        separateDebt,
+        limitUsed,
+        availableCredit: (account.creditLimit || 0) - limitUsed,
         balance: 0,
       };
     }
@@ -1039,6 +1223,8 @@ const remaining = computed(() =>
     return {
       balance,
       usedCredit: 0,
+      separateDebt: 0,
+      limitUsed: 0,
       availableCredit: 0,
     };
   }
@@ -1110,6 +1296,22 @@ const remaining = computed(() =>
 
     // BUDGETS
     saveBudget,
+    deleteBudget,
+    loadBudgets,
+    monthBudgets,
+    // METAS DE AHORRO
+    savingsGoals,
+    loadSavingsGoals,
+    addSavingsGoal,
+    updateSavingsGoal,
+    deleteSavingsGoal,
+    goalsSavingsFor,
+    // PLAN Y ASESOR
+    emergencyFund,
+    currentPlan,
+    planFor,
+    advisorTips,
+    feedbackFor,
 
     // RECURRING EXPENSES
     loadRecurringExpenses,

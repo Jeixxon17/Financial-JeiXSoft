@@ -1,3 +1,4 @@
+import { isAddiStatement, parseAddiStatement } from './addiStatement'
 import { isNuStatement, parseNuStatement } from './nuStatement'
 import type { ParsedStatement } from './types'
 
@@ -9,6 +10,7 @@ export function parseStatement(pages: string[][]): ParsedStatement {
   const text = pages.flat().join('\n')
 
   if (isNuStatement(text)) return parseNuStatement(pages)
+  if (isAddiStatement(text)) return parseAddiStatement(pages)
 
   if (/bancolombia/i.test(text)) {
     throw new Error('Los extractos de Bancolombia aún no se pueden leer. Envíame uno y lo agrego.')

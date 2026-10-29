@@ -15,7 +15,7 @@ export interface StatementMovement {
 }
 
 export interface ParsedStatement {
-  bank: 'nu' | 'bancolombia'
+  bank: 'nu' | 'bancolombia' | 'addi'
   // Último día del periodo facturado: es la fecha de corte de la app
   cutoffDate: string
   periodStart: string
@@ -26,4 +26,19 @@ export interface ParsedStatement {
   interest: number
   conversionFees: number
   movements: StatementMovement[]
+  // Créditos de los que el extracto solo trae la cuota del mes (ADDI con
+  // interés): su saldo queda en la deuda sin detalle, repartido en cuotas
+  previousCredits?: PreviousCredit[]
+  // La deuda total es la de la fecha del extracto e incluye compras que aún no
+  // se facturan (ADDI); si no, es la deuda al corte (NU)
+  debtIncludesUnbilled?: boolean
+}
+
+export interface PreviousCredit {
+  date: string
+  description: string
+  // Capital que se cobra cada mes
+  monthlyCapital: number
+  // Interés mensual (%)
+  interestRate: number
 }

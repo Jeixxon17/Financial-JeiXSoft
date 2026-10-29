@@ -37,10 +37,13 @@
         <!-- 2. Revisión -->
         <div v-else-if="step === 'review' && statement" class="modal-body">
           <div class="summary">
-            <div><span>Corte</span><strong>{{ formatDate(statement.cutoffDate) }}</strong></div>
+            <div><span>Corte</span><strong>{{ formatDate(billingCutoff) }}</strong></div>
             <div><span>Fecha límite</span><strong>{{ formatDate(statement.dueDate) }}</strong></div>
             <div><span>Pago mínimo</span><strong>{{ formatCurrency(statement.minimumPayment) }}</strong></div>
-            <div><span>Deuda al corte</span><strong>{{ formatCurrency(statement.totalDebt) }}</strong></div>
+            <div>
+              <span>Deuda al {{ statement.debtIncludesUnbilled ? formatDate(statement.cutoffDate) : 'corte' }}</span>
+              <strong>{{ formatCurrency(statement.totalDebt) }}</strong>
+            </div>
           </div>
 
           <!-- Nuevos -->
@@ -79,6 +82,25 @@
             </div>
           </section>
 
+          <!-- Créditos de los que el extracto solo trae la cuota del mes (ADDI) -->
+          <section v-if="previousCredits.length">
+            <h3>📋 Créditos con interés ({{ previousCredits.length }})</h3>
+            <p class="hint">
+              El extracto no dice su valor ni sus cuotas: su saldo queda en la deuda sin detalle y se factura
+              {{ formatCurrency(previousMonthly) }} al mes (lo que cobran de capital).
+            </p>
+            <div v-for="credit in previousCredits" :key="credit.date + credit.description" class="row row-main">
+              <span class="row-info">
+                <strong>{{ credit.description }}</strong>
+                <small>
+                  {{ formatDate(credit.date) }} · {{ credit.interestRate }}% mes
+                  <template v-if="isSeparate(credit)"> · es el {{ separateDebt!.description }} (va aparte)</template>
+                </small>
+              </span>
+              <span class="row-amount">{{ formatCurrency(credit.monthlyCapital) }}/mes</span>
+            </div>
+          </section>
+
           <!-- En la app pero no en el extracto -->
           <section v-if="extraTxs.length">
             <h3>⚠️ En la app pero no en el extracto ({{ extraTxs.length }})</h3>
@@ -94,7 +116,7 @@
           </section>
 
           <p v-if="nextPeriodTxs.length" class="hint">
-            📅 {{ nextPeriodTxs.length }} movimiento(s) del {{ formatDate(statement.cutoffDate) }} irán en el siguiente extracto
+            📅 {{ nextPeriodTxs.length }} movimiento(s) desde el {{ formatDate(billingCutoff) }} irán en el siguiente extracto
             ({{ nextPeriodTxs.map(t => t.description || 'sin descripción').join(', ') }}).
           </p>
 
@@ -157,8 +179,11 @@ import { useFinanceStore } from '@/stores/finance'
 import { createTransactionService } from '@/services/transaction.service'
 import { formatCurrency, formatDate } from '@/utils/formatters'
 import { creditDebtUntil } from '@/utils/creditStatement'
+import { dateInMonth, parseISODate, toISODate } from '@/utils/dates'
 import { installmentSchedule } from '@/utils/installments'
-import { extractPdfLines, parseStatement, PdfPasswordError, type ParsedStatement } from '@/utils/statements'
+import {
+  extractPdfLines, parseStatement, PdfPasswordError, type ParsedStatement, type PreviousCredit
+} from '@/utils/statements'
 import { buildImportRows, debtEffect, unmatchedTxs, type ImportRow } from '@/utils/statements/matching'
 import type { Account, DeferredDebt, Transaction } from '@/interfaces'
 
@@ -184,6 +209,31 @@ const resultText = ref('')
 const newRows = computed(() => rows.value.filter(r => r.status === 'new'))
 const matchedRows = computed(() => rows.value.filter(r => r.status === 'matched'))
 
+// Corte de la app al que corresponde el extracto (el día de corte de la cuenta)
+const billingCutoff = ref('')
+
+function billingCutoffFor(issuedISO: string): string {
+  const day = props.account.cutoffDate
+  if (!day) return issuedISO
+  const issued = parseISODate(issuedISO)
+  let cutoff = dateInMonth(issued.getFullYear(), issued.getMonth(), day)
+  if (cutoff > issued) cutoff = dateInMonth(issued.getFullYear(), issued.getMonth() - 1, day)
+  return toISODate(cutoff)
+}
+
+// Crédito aparte del cupo (Crédito Grande de ADDI) y si un crédito del extracto es ese
+const separateDebt = computed(() => props.account.deferredDebts?.find(d => d.outsideLimit))
+function isSeparate(credit: PreviousCredit): boolean {
+  const name = separateDebt.value?.statementName?.trim().toLowerCase()
+  return !!name && credit.description.toLowerCase().includes(name)
+}
+
+const previousCredits = computed(() => statement.value?.previousCredits || [])
+// Capital mensual de los créditos que quedan en el saldo sin detalle
+const previousMonthly = computed(() =>
+  previousCredits.value.filter(c => !isSeparate(c)).reduce((sum, c) => sum + c.monthlyCapital, 0)
+)
+
 const sourceAccounts = computed(() => store.accounts.filter(a => a.type !== 'credit'))
 
 const accountTxs = () => store.transactions.filter(t => t.accountId === props.account.id)
@@ -206,13 +256,19 @@ async function read() {
   try {
     const pages = await extractPdfLines(await file.value.arrayBuffer(), password.value || undefined)
     const parsed = parseStatement(pages)
+    billingCutoff.value = billingCutoffFor(parsed.cutoffDate)
+    // Sin corte fijo (ADDI): el periodo va desde el corte anterior de la cuenta
+    if (parsed.debtIncludesUnbilled && props.account.cutoffDate) {
+      const cutoff = parseISODate(billingCutoff.value)
+      parsed.periodStart = toISODate(dateInMonth(cutoff.getFullYear(), cutoff.getMonth() - 1, props.account.cutoffDate))
+    }
 
     const feesId = await store.getFeesCategoryId()
     const defaultSource = sourceAccounts.value.find(a => /bancolombia/i.test(a.name))?.id || sourceAccounts.value[0]?.id || ''
 
     statement.value = parsed
     rows.value = buildImportRows(parsed, accountTxs(), store.transactions, store.categories, feesId, defaultSource)
-    const unmatched = unmatchedTxs(parsed, accountTxs(), rows.value)
+    const unmatched = unmatchedTxs(parsed, accountTxs(), rows.value, billingCutoff.value)
     extraTxs.value = unmatched.inPeriod
     nextPeriodTxs.value = unmatched.nextPeriod
     removeIds.clear()
@@ -229,9 +285,12 @@ async function read() {
 
 const round2 = (n: number) => Math.round(n * 100) / 100
 
-// Deuda en la app al corte, sin lo del día del corte que va al siguiente extracto
+// Deuda en la app a la fecha de la deuda del extracto. NU la da al corte, sin
+// lo del día del corte (va al siguiente); ADDI la da a la fecha del extracto
+// con todo lo comprado hasta ese día.
 function debtAtCutoff(cutoffDate: string): number {
-  return creditDebtUntil(props.account, store.transactions, cutoffDate) - debtEffect(nextPeriodTxs.value)
+  const debt = creditDebtUntil(props.account, store.transactions, cutoffDate)
+  return statement.value?.debtIncludesUnbilled ? debt : debt - debtEffect(nextPeriodTxs.value)
 }
 
 async function apply() {
@@ -286,17 +345,30 @@ async function apply() {
     // Cuadra la deuda al corte con la del extracto ajustando el saldo sin detalle
     const delta = round2(st.totalDebt - debtAtCutoff(st.cutoffDate))
     const deferred: DeferredDebt[] = (props.account.deferredDebts || []).map(d => ({ ...d }))
-    const placeholder = deferred.find(d => d.description.startsWith('Ajuste deuda total'))
+    let placeholder = deferred.find(d => d.description.startsWith('Ajuste deuda total'))
     if (Math.abs(delta) >= 0.01) {
       if (placeholder) placeholder.amount = round2(placeholder.amount + delta)
-      else deferred.push({
-        id: `def_${Date.now()}`, description: 'Ajuste deuda total (compras sin detalle)',
-        amount: delta, installments: 1, date: st.cutoffDate
-      })
+      else {
+        placeholder = {
+          id: `def_${Date.now()}`, description: 'Ajuste deuda total (compras sin detalle)',
+          amount: delta, installments: 1, date: st.cutoffDate
+        }
+        deferred.push(placeholder)
+      }
+    }
+
+    // Créditos con interés (ADDI): el saldo sin detalle incluye la cuota de este
+    // extracto, así que se factura desde este corte (fecha un día antes) en
+    // cuotas del capital que cobran cada mes
+    if (placeholder && previousMonthly.value > 0) {
+      const dayBefore = parseISODate(billingCutoff.value)
+      dayBefore.setDate(dayBefore.getDate() - 1)
+      placeholder.date = toISODate(dayBefore)
+      placeholder.installments = Math.max(1, Math.round(placeholder.amount / previousMonthly.value))
     }
 
     await store.updateAccount(accountId, {
-      statementMinimums: { ...(props.account.statementMinimums || {}), [st.cutoffDate]: st.minimumPayment },
+      statementMinimums: { ...(props.account.statementMinimums || {}), [billingCutoff.value]: st.minimumPayment },
       paymentDate: Number(st.dueDate.slice(8, 10)),
       deferredDebts: deferred
     })

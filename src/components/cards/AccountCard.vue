@@ -46,7 +46,7 @@
 
       <div class="credit-balance">
         <span class="balance-label">Cupo disponible</span>
-        <span class="balance-amount available">{{ formatCurrency(available) }}</span>
+        <span class="balance-amount available" :class="{ 'text-red': available < 0 }">{{ available < 0 ? '-' : '' }}{{ formatCurrency(available) }}</span>
       </div>
       <div class="credit-progress">
         <div class="progress-bar">
@@ -57,7 +57,7 @@
           />
         </div>
         <div class="progress-labels">
-          <span>{{ formatCurrency(calculatedData.usedCredit || 0) }} usado</span>
+          <span>{{ formatCurrency(limitUsed) }} usado</span>
           <span class="used-pct" :class="usedPercent > 80 ? 'text-red' : usedPercent > 50 ? 'text-amber' : 'text-green'">
             {{ usedPercent.toFixed(0) }}%
           </span>
@@ -67,6 +67,10 @@
         <div class="detail-item">
           <span>Cupo total</span>
           <span>{{ formatCurrency(account.creditLimit || 0) }}</span>
+        </div>
+        <div class="detail-item" v-if="calculatedData.separateDebt > 0">
+          <span>{{ separateName }} (aparte del cupo)</span>
+          <span>{{ formatCurrency(calculatedData.separateDebt) }}</span>
         </div>
         <div class="detail-item" v-if="statement?.lastCutoff">
           <span>Último corte</span>
@@ -125,9 +129,15 @@ const usedPercent = computed(() => {
   if (!props.account.creditLimit) return 0
 
   return (
-    (calculatedData.value.usedCredit / props.account.creditLimit) * 100
+    (limitUsed.value / props.account.creditLimit) * 100
   )
 })
+
+// Lo que gasta cupo (sin el Crédito Grande de ADDI ni intereses si el banco lo reportó)
+const limitUsed = computed(() => calculatedData.value.limitUsed)
+const separateName = computed(() =>
+  props.account.deferredDebts?.find(d => d.outsideLimit)?.description || 'Crédito aparte'
+)
 
 const calculatedData = computed(() => {
   return store.calculateAccountBalance(props.account.id)

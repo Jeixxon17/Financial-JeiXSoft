@@ -273,6 +273,18 @@ const allAlerts = computed<Alert[]>(() => {
         message: `Pago mínimo de ${a.name}: ${formatCurrency(s.minimumPayment)} ${when}.`,
       });
     });
+  // Lo más importante del asesor (Presupuesto y ahorro)
+  store.advisorTips
+    .filter((t) => t.level === "danger" || t.level === "warn")
+    .slice(0, 3)
+    .forEach((t, i) => {
+      list.push({
+        id: 400 + i,
+        type: t.level === "danger" ? "danger" : "warning",
+        icon: t.icon,
+        message: `${t.title}. ${t.text}`,
+      });
+    });
   return list.filter((a) => !dismissedAlerts.value.includes(a.id));
 });
 

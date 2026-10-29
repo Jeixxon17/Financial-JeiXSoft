@@ -1,13 +1,17 @@
 <template>
   <div v-if="!authState.ready" class="app-boot" />
   <PinScreen v-else-if="!authState.unlocked" />
-  <router-view v-else />
+  <template v-else>
+    <router-view />
+    <AdvisorToast />
+  </template>
 </template>
 
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, watch } from 'vue'
 import { useFinanceStore } from '@/stores/finance'
 import PinScreen from '@/components/security/PinScreen.vue'
+import AdvisorToast from '@/components/AdvisorToast.vue'
 import { authState, initAuth, lockApp } from '@/services/auth.service'
 import { flushNotifications, watchNotificationSession } from '@/services/notificationListener'
 

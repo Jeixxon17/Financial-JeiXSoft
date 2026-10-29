@@ -136,6 +136,10 @@
                   <input v-model.number="form.interestRate" type="number" min="0" step="0.0001" placeholder="Ej: 2.1593" />
                 </div>
                 <div class="form-group">
+                  <label>Cuotas sin interés (hasta)</label>
+                  <input v-model.number="form.interestFreeInstallments" type="number" min="0" max="48" placeholder="Ej: ADDI 3" />
+                </div>
+                <div class="form-group">
                   <label>Comisión moneda extranjera (%)</label>
                   <input v-model.number="form.fxFeeRate" type="number" min="0" step="0.01" placeholder="Ej: 0.45" />
                 </div>
@@ -158,14 +162,44 @@
                   La app lleva {{ formatCurrency(currentDebt) }}. Si el banco dice otra cosa, la diferencia se
                   guarda como compra diferida y se va facturando por cuotas desde el próximo corte.
                 </small>
-                <div v-if="editAccount && form.deferredDebts.length" class="form-group full">
+                <div v-if="editAccount && listedDeferred.length" class="form-group full">
                   <label>Deuda diferida</label>
-                  <div v-for="debt in form.deferredDebts" :key="debt.id" class="deferred-row">
+                  <div v-for="debt in listedDeferred" :key="debt.id" class="deferred-row">
                     <span>{{ debt.description }} · {{ formatCurrency(debt.amount) }}</span>
                     <input v-model.number="debt.installments" type="number" min="1" title="Cuotas" />
                     <span class="form-hint">cuotas</span>
                     <button type="button" class="action-btn" @click="removeDeferred(debt.id)">🗑️</button>
                   </div>
+                </div>
+                <div v-if="editAccount" class="form-group full">
+                  <label>Cupo gastado según el banco (hoy)</label>
+                  <input v-model.number="form.reportedLimitUsed" type="number" min="0" :placeholder="formatCurrency(currentLimitUsed)" />
+                  <small class="form-hint">
+                    Opcional, ej: "Cupo que has gastado" en ADDI. Desde ahí suben las compras y baja el capital de
+                    cada cuota al pasar su fecha de pago (intereses y créditos aparte no gastan cupo).
+                  </small>
+                </div>
+                <div class="form-group full section-title">
+                  <label>Crédito aparte del cupo (opcional)</label>
+                  <small class="form-hint">
+                    Ej: el Crédito Grande de ADDI. Cuenta como deuda y entra en el pago mínimo, pero no gasta cupo.
+                  </small>
+                </div>
+                <div class="form-group">
+                  <label>Nombre</label>
+                  <input v-model="form.separateName" type="text" placeholder="Crédito Grande" />
+                </div>
+                <div class="form-group">
+                  <label>Nombre en el extracto</label>
+                  <input v-model="form.separateStatementName" type="text" placeholder="Ej: Marketplace Addi" />
+                </div>
+                <div class="form-group">
+                  <label>Capital pendiente</label>
+                  <input v-model.number="form.separatePending" type="number" min="0" placeholder="0" />
+                </div>
+                <div class="form-group">
+                  <label>Cuotas que faltan</label>
+                  <input v-model.number="form.separateInstallments" type="number" min="1" placeholder="1" />
                 </div>
               </template>
             </div>
@@ -195,7 +229,7 @@ import { useFinanceStore } from '@/stores/finance'
 import { formatCurrency } from '@/utils/formatters'
 import type { Account, DeferredDebt } from '@/interfaces'
 import { calculateCreditStatement } from '@/utils/creditStatement'
-import { toISODate, todayISO } from '@/utils/dates'
+import { dateInMonth, parseISODate, toISODate, todayISO } from '@/utils/dates'
 
 const store = useFinanceStore()
 
@@ -225,13 +259,20 @@ const defaultForm = () => ({
   cutoffDate: 15,
   paymentDate: 25,
   interestRate: 0,
+  interestFreeInstallments: 0,
   fxFeeRate: 0,
   lastDigits: '',
   statementMinimums: {} as Record<string, number>,
   statementMinimum: 0,
   deferredDebts: [] as DeferredDebt[],
+  limitUsedAnchor: undefined as Account['limitUsedAnchor'],
   reportedDebt: null as number | null,
-  reportedDebtInstallments: 1
+  reportedDebtInstallments: 1,
+  separateName: '',
+  separateStatementName: '',
+  separatePending: 0,
+  separateInstallments: 1,
+  reportedLimitUsed: null as number | null
 })
 
 const form = reactive(defaultForm())
@@ -265,15 +306,64 @@ const currentDebt = computed(() => {
   )
 })
 
+// Un día antes del corte: la compra se factura en ese corte
+function dayBefore(iso: string): string {
+  const date = parseISODate(iso)
+  date.setDate(date.getDate() - 1)
+  return toISODate(date)
+}
+
+const currentLimitUsed = computed(() =>
+  editAccount.value ? store.calculateAccountBalance(editAccount.value.id).limitUsed : 0
+)
+
+// El crédito aparte del cupo se edita con sus propios campos
+const listedDeferred = computed(() => form.deferredDebts.filter(d => !d.outsideLimit))
+
 function removeDeferred(id: string) {
   form.deferredDebts = form.deferredDebts.filter(d => d.id !== id)
 }
 
 function save() {
   if (!form.name) return
-  const { statementMinimum, reportedDebt, reportedDebtInstallments, ...data } = form
-  const statementMinimums = { ...data.statementMinimums }
-  const deferredDebts = data.deferredDebts.map(d => ({ ...d, installments: Math.max(1, d.installments || 1) }))
+  const {
+    statementMinimum, reportedDebt, reportedDebtInstallments,
+    separateName, separateStatementName, separatePending, separateInstallments, reportedLimitUsed, ...data
+  } = form
+  if (reportedLimitUsed != null && reportedLimitUsed >= 0 && data.type === 'credit') {
+    data.limitUsedAnchor = { amount: reportedLimitUsed, date: todayISO() }
+  }
+  // Firestore no acepta campos undefined
+  if (!data.limitUsedAnchor) delete data.limitUsedAnchor
+  // Si cambia el día de corte, cada mínimo pasa al corte nuevo de ese extracto
+  const previousDay = editAccount.value?.cutoffDate
+  const statementMinimums = previousDay && data.cutoffDate && previousDay !== data.cutoffDate
+    ? Object.fromEntries(Object.entries(data.statementMinimums).map(([iso, minimum]) => {
+        const date = parseISODate(iso)
+        let cutoff = dateInMonth(date.getFullYear(), date.getMonth(), data.cutoffDate)
+        if (cutoff > date) cutoff = dateInMonth(date.getFullYear(), date.getMonth() - 1, data.cutoffDate)
+        return [toISODate(cutoff), minimum]
+      }))
+    : { ...data.statementMinimums }
+  const deferredDebts = data.deferredDebts
+    .filter(d => !d.outsideLimit)
+    .map(d => ({ ...d, installments: Math.max(1, d.installments || 1) }))
+
+  // Crédito aparte del cupo: si cambia el capital pendiente se factura desde el último corte
+  const separate = data.deferredDebts.find(d => d.outsideLimit)
+  if (data.type === 'credit' && separatePending > 0) {
+    const changed = !separate || Math.abs(separate.amount - separatePending) >= 1 ||
+      separate.installments !== Math.max(1, separateInstallments || 1)
+    deferredDebts.push({
+      id: separate?.id || `sep_${Date.now()}`,
+      description: separateName.trim() || 'Crédito aparte',
+      statementName: separateStatementName.trim(),
+      amount: separatePending,
+      installments: Math.max(1, separateInstallments || 1),
+      date: changed ? dayBefore(currentCutoff.value || todayISO()) : separate!.date,
+      outsideLimit: true
+    })
+  }
 
   const difference = reportedDebt ? Math.round(reportedDebt - currentDebt.value) : 0
   if (difference !== 0) {
@@ -304,6 +394,13 @@ watch(editAccount, (acc) => {
   if (!acc) return
   Object.assign(form, defaultForm(), acc)
   form.deferredDebts = (acc.deferredDebts || []).map(d => ({ ...d }))
+  const separate = acc.deferredDebts?.find(d => d.outsideLimit)
+  if (separate) {
+    form.separateName = separate.description
+    form.separateStatementName = separate.statementName || ''
+    form.separatePending = separate.amount
+    form.separateInstallments = separate.installments
+  }
   form.statementMinimum = currentCutoff.value
     ? acc.statementMinimums?.[currentCutoff.value] || 0
     : 0
