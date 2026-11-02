@@ -25,7 +25,8 @@ export interface Account {
   // Cupo gastado que muestra el banco en una fecha (solo capital, ej: ADDI).
   // Desde ahí: las compras lo suben y el capital de cada cuota lo libera al
   // pasar su fecha de pago; intereses, comisiones y créditos aparte no cuentan
-  limitUsedAnchor?: { amount: number; date: string }
+  // `minimumCovered`: el pago mínimo del último corte ya estaba pagado al cuadrar
+  limitUsedAnchor?: { amount: number; date: string; minimumCovered?: boolean }
   // Últimos 4 dígitos, para reconocer la cuenta en las notificaciones del banco
   lastDigits?: string
 }

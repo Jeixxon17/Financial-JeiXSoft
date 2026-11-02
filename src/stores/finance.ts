@@ -34,7 +34,7 @@ import {
 } from "@/utils/plan";
 
 import { getCurrentMonth, getMonthRange } from "@/utils/formatters";
-import { calculateCreditStatement, creditInterestUntil, creditTransactions, limitUsedFromAnchor, outsideLimitDebt } from "@/utils/creditStatement";
+import { calculateCreditStatement, creditInterestUntil, creditLimitState, creditTransactions, outsideLimitDebt } from "@/utils/creditStatement";
 import { fxFee, trmForCharge, usdToCop } from "@/utils/exchange";
 import {
   addDaysISO,
@@ -1196,14 +1196,20 @@ const remaining = computed(() =>
 
       usedCredit = Math.round(usedCredit);
 
+      // Si se cuadró con el banco, cupo y Crédito Grande salen de esos valores
+      // más las compras y pagos posteriores (solo capital)
+      const limitState = creditLimitState(account, transactions.value);
+
       // Créditos aparte del cupo (Crédito Grande de ADDI): son deuda pero no
       // gastan cupo
-      const separateDebt = Math.min(usedCredit, Math.round(outsideLimitDebt(account)));
+      const separateDebt = Math.min(
+        usedCredit,
+        limitState ? limitState.separatePending : Math.round(outsideLimitDebt(account)),
+      );
 
-      // Cupo gastado: el que reportó el banco si lo hay (solo capital); si no,
-      // la deuda sin los créditos aparte
-      const limitUsed =
-        limitUsedFromAnchor(account, transactions.value) ?? usedCredit - separateDebt;
+      // Cupo gastado: el que reportó el banco si lo hay; si no, la deuda sin
+      // los créditos aparte
+      const limitUsed = limitState ? limitState.limitUsed : usedCredit - separateDebt;
 
       return {
         usedCredit,

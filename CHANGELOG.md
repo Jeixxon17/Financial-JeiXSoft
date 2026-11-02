@@ -4,6 +4,16 @@ Cada pedido de cambios sube la versión menor (1.1 → 1.2 → 1.3…) con
 `npm run version:bump`. La versión vive en `package.json` y de ahí la toman
 la app web, la PWA y el APK de Android (se ve en el menú y en la pantalla del PIN).
 
+## 1.14 — 2026-11-02
+
+- Cupo (ADDI): los pagos liberan cupo al momento, como el banco: cada pago
+  se aplica por corte, primero intereses y comisiones y luego el capital de
+  las cuotas; el capital libera cupo o baja el Crédito Grande. Antes solo se
+  liberaba al pasar la fecha de pago, y si pagabas antes no cambiaba nada.
+- ⚖️ Cuadrar con el banco (en cada tarjeta): se escriben el pago total, el
+  cupo usado y el crédito aparte que muestra el banco y la tarjeta queda
+  igual (el saldo sin detalle se ajusta solo).
+
 ## 1.13 — 2026-11-02
 
 - "Por confirmar" → 📩 Buscar SMS del banco: lee los SMS de Bancolombia que

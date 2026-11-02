@@ -147,25 +147,85 @@ export function outsideLimitDebt(account: Account, today: Date = new Date()): nu
     .reduce((sum, t) => sum + Math.max(0, t.amount - capitalDueBetween(account, t, null, today)), 0)
 }
 
+export interface CreditLimitState {
+  // Cupo gastado (solo capital de los créditos del cupo)
+  limitUsed: number
+  // Capital pendiente de los créditos aparte del cupo (Crédito Grande)
+  separatePending: number
+}
+
 /**
- * Cupo gastado a partir del que mostró el banco (`limitUsedAnchor`): suben
- * las compras posteriores y baja el capital de las cuotas que vencen desde
- * entonces. Intereses, comisiones y créditos aparte del cupo no cuentan.
+ * Cupo gastado y Crédito Grande desde los valores que mostró el banco al
+ * cuadrar (`limitUsedAnchor`). Las compras posteriores suben el cupo y cada
+ * pago posterior se aplica como lo hace el banco: por corte, primero
+ * intereses y comisiones y luego el capital de las cuotas; el capital pagado
+ * libera cupo (o baja el crédito aparte) en el momento del pago.
  */
-export function limitUsedFromAnchor(account: Account, transactions: Transaction[], today: Date = new Date()): number | null {
+export function creditLimitState(
+  account: Account,
+  transactions: Transaction[],
+  today: Date = new Date()
+): CreditLimitState | null {
   const anchor = account.limitUsedAnchor
   if (account.type !== 'credit' || !account.cutoffDate || !anchor) return null
 
-  const anchorDate = parseISODate(anchor.date)
-  const separate = new Set((account.deferredDebts || []).filter(d => d.outsideLimit).map(d => d.id))
+  const day = account.cutoffDate
   const todayISO = toISODate(today)
+  const separate = new Set((account.deferredDebts || []).filter(d => d.outsideLimit).map(d => d.id))
 
-  const used = creditTransactions(account, transactions)
-    .filter(t => t.type === 'expense' && !separate.has(t.id) && !t.tags.includes('comisión') && t.date <= todayISO)
-    .reduce((sum, t) =>
-      sum + (t.date > anchor.date ? t.amount : 0) - capitalDueBetween(account, t, anchorDate, today), anchor.amount)
+  // Cuotas que ya estaban cobradas al cuadrar: las de cortes anteriores y, si
+  // el mínimo ya estaba pagado, también las del último corte
+  const anchorCutoff = monthIndexOf(lastCutoffBefore(parseISODate(anchor.date), day))
+  const firstOpen = anchorCutoff + (anchor.minimumCovered ? 1 : 0)
 
-  return Math.max(0, Math.round(used))
+  const items: { idx: number; order: number; amount: number; kind: 'cupo' | 'separate' | 'other' }[] = []
+  const txs = creditTransactions(account, transactions).filter(t => t.date <= todayISO)
+  let purchases = 0
+
+  for (const t of txs) {
+    if (t.type !== 'expense') continue
+
+    // Intereses y comisiones nuevos: se pagan primero en su corte
+    if (t.tags.includes('comisión')) {
+      if (t.date <= anchor.date) continue
+      const dayAfter = parseISODate(t.date)
+      dayAfter.setDate(dayAfter.getDate() + 1)
+      items.push({ idx: monthIndexOf(lastCutoffBefore(dayAfter, day)), order: 0, amount: t.amount, kind: 'other' })
+      continue
+    }
+
+    const isSeparate = separate.has(t.id)
+    if (!isSeparate && t.date > anchor.date) purchases += t.amount
+
+    const first = monthIndexOf(firstCutoffFor(parseISODate(t.date), day))
+    for (const row of installmentSchedule(t.amount, t.installments || 1, t.interestRate || 0)) {
+      const idx = first + row.number - 1
+      if (idx < firstOpen) continue
+      if (row.interest > 0) items.push({ idx, order: 0, amount: row.interest, kind: 'other' })
+      items.push({ idx, order: 1, amount: row.capital, kind: isSeparate ? 'separate' : 'cupo' })
+    }
+  }
+
+  items.sort((a, b) => a.idx - b.idx || a.order - b.order)
+
+  let available = txs
+    .filter(t => t.type === 'income' && t.date > anchor.date)
+    .reduce((sum, t) => sum + t.amount, 0)
+  let freedLimit = 0
+  let paidSeparate = 0
+  for (const item of items) {
+    if (available <= 0) break
+    const part = Math.min(available, item.amount)
+    available -= part
+    if (item.kind === 'cupo') freedLimit += part
+    else if (item.kind === 'separate') paidSeparate += part
+  }
+
+  const separateTotal = (account.deferredDebts || []).filter(d => d.outsideLimit).reduce((s, d) => s + d.amount, 0)
+  return {
+    limitUsed: Math.max(0, Math.round(anchor.amount + purchases - freedLimit)),
+    separatePending: Math.max(0, Math.round(separateTotal - paidSeparate))
+  }
 }
 
 function paidUntil(accountTxs: Transaction[], dateISO: string): number {

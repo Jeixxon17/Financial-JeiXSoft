@@ -32,6 +32,7 @@
           :account="acc"
           @edit="editAccount = $event; showModalBanks = true"
           @statement="statementAccount = $event"
+          @reconcile="reconcileAccount = $event"
           @delete="store.deleteAccount($event)"
         />
         <div class="add-account-card" @click="showModalBanks = true">
@@ -42,6 +43,13 @@
     </div>
 
   </AppLayout>
+
+  <BankReconcileModal
+    v-if="reconcileAccount"
+    :key="'r' + reconcileAccount.id"
+    :account="reconcileAccount"
+    @close="reconcileAccount = null"
+  />
 
   <StatementImportModal
     v-if="statementAccount"
@@ -225,6 +233,7 @@ import {
 import AppLayout from '@/layouts/AppLayout.vue'
 import AccountCard from '@/components/cards/AccountCard.vue'
 import StatementImportModal from '@/components/modals/StatementImportModal.vue'
+import BankReconcileModal from '@/components/modals/BankReconcileModal.vue'
 import { useFinanceStore } from '@/stores/finance'
 import { formatCurrency } from '@/utils/formatters'
 import type { Account, DeferredDebt } from '@/interfaces'
@@ -240,6 +249,7 @@ onMounted(async () => {
 const showModalBanks = ref(false)
 const editAccount = ref<Account | null>(null)
 const statementAccount = ref<Account | null>(null)
+const reconcileAccount = ref<Account | null>(null)
 
 const totalAssets = computed(() =>
   store.accounts.filter(a => a.type !== 'credit').reduce((s, a) => s + a.balance, 0)
