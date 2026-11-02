@@ -50,9 +50,9 @@ public class BankNotificationService extends NotificationListenerService {
         "com.android.shell"
     );
 
-    private static final Pattern BANK_TEXT = Pattern.compile("bancolombia|nubank|\\bnu\\b", Pattern.CASE_INSENSITIVE);
+    static final Pattern BANK_TEXT = Pattern.compile("bancolombia|nubank|\\bnu\\b", Pattern.CASE_INSENSITIVE);
     // Un movimiento siempre trae un monto: $1.000, COP27.800,00, 1,887,533.00
-    private static final Pattern MONEY = Pattern.compile("(\\$|COP)\\s?\\d|\\d{1,3}([.,]\\d{3})+");
+    static final Pattern MONEY = Pattern.compile("(\\$|COP)\\s?\\d|\\d{1,3}([.,]\\d{3})+");
 
     // Repaso del panel como mucho cada 2 minutos
     private static final long SWEEP_INTERVAL_MS = 2 * 60 * 1000;
@@ -211,7 +211,7 @@ public class BankNotificationService extends NotificationListenerService {
         }
     }
 
-    private static String bankFor(String pkg, String full) {
+    static String bankFor(String pkg, String full) {
         if (pkg.equals("com.nu.production")) return "nu";
         if (BANK_PACKAGES.contains(pkg)) return "bancolombia";
         return full.toLowerCase(Locale.ROOT).contains("bancolombia") ? "bancolombia" : "nu";
@@ -221,14 +221,14 @@ public class BankNotificationService extends NotificationListenerService {
         return value == null ? "" : value.toString().trim();
     }
 
-    private static String isoDate(long millis) {
+    static String isoDate(long millis) {
         SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US);
         format.setTimeZone(TimeZone.getTimeZone("UTC"));
         return format.format(new Date(millis));
     }
 
     // Id estable por texto: si llega dos veces (push y SMS, o se actualiza) no se duplica
-    private static String idFor(String body) {
+    static String idFor(String body) {
         String normalized = body.replaceAll("\\s+", " ").trim().toLowerCase(Locale.ROOT);
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");

@@ -2,7 +2,8 @@ import {
   collection,
   deleteDoc,
   doc,
-  getDocs
+  getDocs,
+  setDoc
 } from 'firebase/firestore'
 
 import { db } from '@/firebase/config'
@@ -29,5 +30,18 @@ export const deletePendingTransactionService = async (
 
   await deleteDoc(
     doc(db, COLLECTION, id)
+  )
+}
+
+// Con el mismo id del lector: si ya estaba en "Por confirmar" no se duplica
+export const savePendingTransactionService = async (
+  item: PendingTransaction
+) => {
+
+  const { id, ...data } = item
+
+  await setDoc(
+    doc(db, COLLECTION, id),
+    data
   )
 }

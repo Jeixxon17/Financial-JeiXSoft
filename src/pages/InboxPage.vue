@@ -37,6 +37,13 @@
         </div>
       </div>
 
+      <!-- Recuperar SMS de días en que el lector no los tomó -->
+      <div v-if="canReadNotifications" class="sms-bar">
+        <span>¿Faltó algún movimiento de ciertos días?</span>
+        <button class="btn-primary" @click="showSms = true">📩 Buscar SMS del banco</button>
+      </div>
+      <p v-if="smsSent" class="sms-sent">✅ {{ smsSent }} movimiento(s) recuperado(s) de los SMS: confírmalos abajo.</p>
+
       <!-- Lista -->
       <div v-if="items.length" class="pending-list">
         <div v-for="item in items" :key="item.id" class="pending-card">
@@ -79,6 +86,8 @@
     </div>
   </AppLayout>
 
+  <SmsImportModal v-if="showSms" @close="showSms = false" @sent="(n: number) => (smsSent = n)" />
+
   <TransactionModal
     v-if="selected"
     :key="selected.id"
@@ -117,6 +126,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import AppLayout from '@/layouts/AppLayout.vue'
 import TransactionModal from '@/components/modals/TransactionModal.vue'
+import SmsImportModal from '@/components/modals/SmsImportModal.vue'
 import { useFinanceStore } from '@/stores/finance'
 import { formatCurrency } from '@/utils/formatters'
 import { toISODate } from '@/utils/dates'
@@ -134,6 +144,8 @@ type PendingItem = PendingTransaction & ParsedNotification & { bank: 'bancolombi
 
 const store = useFinanceStore()
 const selected = ref<PendingItem | null>(null)
+const showSms = ref(false)
+const smsSent = ref(0)
 const toDiscard = ref<PendingItem | null>(null)
 const discarding = ref(false)
 
@@ -487,4 +499,19 @@ function prefillFor(item: PendingItem): Partial<Transaction> {
     align-items: stretch;
   }
 }
+
+.sms-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px dashed var(--border-light);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.sms-sent { font-size: 13px; color: var(--accent-green); }
 </style>

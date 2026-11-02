@@ -4,6 +4,15 @@ Cada pedido de cambios sube la versión menor (1.1 → 1.2 → 1.3…) con
 `npm run version:bump`. La versión vive en `package.json` y de ahí la toman
 la app web, la PWA y el APK de Android (se ve en el menú y en la pantalla del PIN).
 
+## 1.13 — 2026-11-02
+
+- "Por confirmar" → 📩 Buscar SMS del banco: lee los SMS de Bancolombia que
+  siguen en el celular entre dos fechas (con atajos de 3, 7, 15 y 30 días),
+  marca cuáles ya están registrados o en espera y manda los que faltan a
+  "Por confirmar". La primera vez Android pide el permiso de leer SMS.
+  Las notificaciones de las apps no se pueden recuperar (Android no las
+  guarda).
+
 ## 1.12 — 2026-10-29
 
 - Fondo de emergencia: meta especial de 3, 4 o 6 meses de sueldo neto que

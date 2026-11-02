@@ -77,6 +77,7 @@ import {
 import {
   getPendingTransactionsService,
   deletePendingTransactionService,
+  savePendingTransactionService,
 } from "@/services/pending.service";
 
 import {
@@ -259,6 +260,12 @@ export const useFinanceStore = defineStore("finance", () => {
     } catch (error) {
       console.error("Error loading pending transactions", error);
     }
+  }
+
+  // Manda a "Por confirmar" movimientos recuperados (ej: SMS de días pasados)
+  async function addPendingTransactions(items: PendingTransaction[]) {
+    for (const item of items) await savePendingTransactionService(item);
+    await loadPendingTransactions();
   }
 
   async function dismissPendingTransaction(id: string) {
@@ -1252,6 +1259,7 @@ const remaining = computed(() =>
     loadPaychecks, 
     loadPendingTransactions,
     dismissPendingTransaction,
+    addPendingTransactions,
     getAccountForNotification,
     loadFinanceData,
 

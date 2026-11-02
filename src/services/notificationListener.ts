@@ -3,6 +3,7 @@ import { onIdTokenChanged } from 'firebase/auth'
 
 import { auth } from '@/firebase/config'
 import { OWNER_EMAIL } from '@/services/auth.service'
+import type { PendingTransaction } from '@/interfaces'
 
 // Lector nativo (android/.../notifications): guarda las notificaciones de
 // Bancolombia y NU aunque la app esté cerrada y las sube solo a Firestore
@@ -19,6 +20,7 @@ interface BankNotificationsPlugin {
   requestIgnoreBatteryOptimizations(): Promise<void>
   setSession(options: { apiKey: string; projectId: string; refreshToken: string }): Promise<void>
   flush(): Promise<void>
+  readBankSms(options: { from: number; to: number }): Promise<{ messages: PendingTransaction[] }>
 }
 
 const BankNotifications = registerPlugin<BankNotificationsPlugin>('BankNotifications')
@@ -62,4 +64,14 @@ export async function requestBatteryExemption() {
 // Sube lo que haya pendiente en el celular
 export async function flushNotifications() {
   if (canReadNotifications) await BankNotifications.flush()
+}
+
+// SMS del banco guardados en el celular entre dos fechas (YYYY-MM-DD, ambas
+// incluidas). Android pide el permiso de leer SMS la primera vez
+export async function readBankSms(fromISO: string, toISO: string): Promise<PendingTransaction[]> {
+  if (!canReadNotifications) return []
+  const from = new Date(`${fromISO}T00:00:00`).getTime()
+  const to = new Date(`${toISO}T23:59:59.999`).getTime()
+  const { messages } = await BankNotifications.readBankSms({ from, to })
+  return messages
 }
