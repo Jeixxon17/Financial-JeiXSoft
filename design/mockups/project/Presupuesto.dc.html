@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Presupuesto y ahorro</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#f4f6fc}a:hover{color:#b9cbff}
+.plan-row{display:flex;justify-content:space-between;align-items:center;font:500 14px/20px Manrope,system-ui,sans-serif;color:#a6b0c9}
+.plan-row strong{font-weight:600;color:#f4f6fc;font-variant-numeric:tabular-nums}
+.goal{display:flex;flex-direction:column;gap:10px;padding:16px;border-radius:20px;background:#111a31;border:1px solid #26314f}
+.goal-head{display:flex;align-items:center;gap:12px}
+.goal-icon{display:grid;place-items:center;width:40px;height:40px;border-radius:999px;background:#202f61;color:#b9cbff;flex-shrink:0}
+</style>
+</helmet>
+<div class="jx-screen" style="position: relative; width: 390px; height: 844px; box-sizing: border-box; padding: 20px 20px 0; display: flex; flex-direction: column; gap: 16px; overflow: hidden; font-family: Manrope, system-ui, sans-serif;">
+  <div style="display: flex; align-items: center; justify-content: space-between;">
+    <h1 style="margin: 0; font-size: 20px; line-height: 26px; font-weight: 600;">Presupuesto y ahorro</h1>
+    <span class="jx-chip">Noviembre</span>
+  </div>
+
+  <div class="jx-panel" style="gap: 10px;">
+    <span class="jx-panel__label">Libre para gastar este mes</span>
+    <span class="jx-panel__amount" style="color: #ff7a88;">−$ 557.277</span>
+    <div style="display: flex; height: 10px; border-radius: 999px; overflow: hidden; background: #253157;">
+      <div style="width: 100%; background: #ff7a88;"></div>
+    </div>
+    <div class="plan-row"><span>Ingreso neto</span><strong>$ 3.774.666</strong></div>
+    <div class="plan-row"><span>Obligaciones de las quincenas</span><strong>−$ 4.331.943</strong></div>
+    <div class="plan-row"><span>Ahorro de metas</span><strong>$ 0</strong></div>
+  </div>
+
+  <div class="jx-notice is-danger">
+    <span class="jx-notice__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg></span>
+    <div><p class="jx-notice__title">Las obligaciones superan tu sueldo</p><p class="jx-notice__text">Termina primero NU: liberas $ 443.626 por quincena.</p></div>
+  </div>
+
+  <div class="jx-section-head"><h2>Metas de ahorro</h2><a href="NuevaMeta.dc.html">Nueva meta</a></div>
+
+  <a class="goal" href="DetalleMeta.dc.html" style="text-decoration: none; color: inherit;">
+    <div class="goal-head">
+      <span class="goal-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="m12 7 4 3-1.5 5h-5L8 10z"/><path d="M12 7V2M16 10l5-2M14.5 15l3 4.5M9.5 15l-3 4.5M8 10 3 8"/></svg></span>
+      <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+        <span style="font-size: 15px; line-height: 22px; font-weight: 600;">Mundial 2030</span>
+        <span style="font-size: 12px; line-height: 16px; color: #8a95b1;">España, Portugal y Marruecos · 1 may 2030</span>
+      </div>
+      <span class="jx-chip">0 %</span>
+    </div>
+    <div class="jx-progress jx-progress--thin"><div class="jx-progress__fill" style="width: 2%;"></div></div>
+    <div class="plan-row"><span>$ 0 de $ 22.885.500</span><strong>$ 287.000 / quincena</strong></div>
+    <span style="font-size: 12px; line-height: 16px; color: #8a95b1;">Empieza el 15 de enero de 2027 · 40 meses</span>
+  </a>
+
+  <div class="goal">
+    <div class="goal-head">
+      <span class="goal-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
+      <div style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px;">
+        <span style="font-size: 15px; line-height: 22px; font-weight: 600;">Fondo de emergencia</span>
+        <span style="font-size: 12px; line-height: 16px; color: #f5bd4f;">En espera: primero las deudas</span>
+      </div>
+      <span class="jx-chip jx-chip--warning">Bloqueado</span>
+    </div>
+    <div class="plan-row"><span>Meta: 3 meses de sueldo</span><strong>$ 11.320.000</strong></div>
+  </div>
+
+  <div style="position: absolute; left: 20px; right: 20px; bottom: 20px;">
+    <dc-import name="Nav" active="budget" hint-size="350px,66px"></dc-import>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

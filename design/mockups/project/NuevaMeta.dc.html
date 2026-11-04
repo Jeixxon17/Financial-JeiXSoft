@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Nueva meta</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#b9cbff}a:hover{color:#f4f6fc}
+.ic{display:grid;place-items:center;width:44px;height:44px;border-radius:999px;background:#1a2441;border:1px solid #26314f;color:#f4f6fc}
+.ic.on{background:#4f6fdc;border-color:#4f6fdc}
+.item{display:grid;grid-template-columns:minmax(0,1fr) 120px;gap:8px}
+.item div{min-height:44px;display:flex;align-items:center;padding:0 12px;border-radius:12px;background:#1a2441;border:1px solid #26314f;font:500 14px/20px Manrope,system-ui,sans-serif}
+.item div:last-child{justify-content:flex-end;font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div class="jx-screen" style="width: 390px; height: 844px; box-sizing: border-box; padding: 20px 20px 24px; display: flex; flex-direction: column; gap: 14px; overflow: hidden; font-family: Manrope, system-ui, sans-serif;">
+  <div style="display: flex; align-items: center; justify-content: space-between;">
+    <a class="jx-icon-btn" href="Presupuesto.dc.html" aria-label="Volver"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></a>
+    <h1 style="margin: 0; font-size: 20px; line-height: 26px; font-weight: 600;">Nueva meta</h1>
+    <span style="width: 40px;"></span>
+  </div>
+
+  <div class="jx-field"><label for="n">¿Para qué ahorras?</label><input id="n" value="Viaje a Punta Cana"></div>
+  <div style="display: flex; gap: 8px;">
+    <span class="ic on"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg></span>
+    <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg></span>
+    <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 18a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM19 18a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM5 16l4-6h5l3 6M9 10l-1-3H6M14 10l2-4h2"/></svg></span>
+    <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 10 12 5 2 10l10 5 10-5zM6 12v5c3 2 9 2 12 0v-5"/></svg></span>
+    <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></span>
+    <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 12v10H4V12M2 7h20v5H2zM12 22V7M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg></span>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;">
+    <div class="jx-field"><label for="s">Empiezo el</label><input id="s" value="15 ene 2027"></div>
+    <div class="jx-field"><label for="e">Lo necesito el</label><input id="e" value="1 dic 2027"></div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 8px;">
+    <span style="font: 500 13px/18px Manrope, system-ui, sans-serif; color: #a6b0c9;">¿En qué se va el dinero?</span>
+    <div class="item"><div>Vuelos ida y vuelta</div><div>$ 2.400.000</div></div>
+    <div class="item"><div>Hotel todo incluido · 5 noches</div><div>$ 3.900.000</div></div>
+    <div class="item"><div>Paseos y extras</div><div>$ 900.000</div></div>
+    <button class="jx-btn jx-btn--ghost" style="min-height: 40px; align-self: flex-start; padding: 0 4px; color: #b9cbff;">+ Agregar gasto</button>
+  </div>
+
+  <div class="jx-panel" style="gap: 6px; padding: 16px; background: #162147; border-color: #4f6fdc;">
+    <span class="jx-panel__label">Para llegar a tiempo</span>
+    <span style="font: 600 26px/32px Manrope, system-ui, sans-serif; color: #b9cbff;" class="jx-num">$ 655.000 al mes</span>
+    <span style="font: 400 13px/18px Manrope, system-ui, sans-serif; color: #a6b0c9;">$ 328.000 por quincena · 11 meses · total $ 7.200.000</span>
+  </div>
+
+  <a class="jx-btn jx-btn--primary jx-btn--block" href="DetalleMeta.dc.html" style="text-decoration: none; box-sizing: border-box; margin-top: auto;">Crear meta</a>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

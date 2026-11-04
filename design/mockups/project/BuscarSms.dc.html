@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Buscar SMS del banco</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#b9cbff}a:hover{color:#f4f6fc}
+.preset{min-height:34px;padding:0 12px;border-radius:999px;border:1px solid #26314f;background:#111a31;color:#a6b0c9;font:500 12px/16px Manrope,system-ui,sans-serif;cursor:pointer}
+.preset.on{background:#f4f6fc;color:#0e1530;border-color:#f4f6fc}
+.sms{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;background:#111a31;border:1px solid #26314f}
+.sms.done{border-style:dashed;opacity:.7}
+.sms input{width:18px;height:18px;accent-color:#4f6fdc;flex-shrink:0;margin:0}
+.sms .main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.sms .main strong{font:600 14px/20px Manrope,system-ui,sans-serif;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sms .main small{font:400 12px/16px Manrope,system-ui,sans-serif;color:#8a95b1}
+.sms .amt{font:600 14px/20px Manrope,system-ui,sans-serif;font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div class="jx-screen" style="width: 390px; height: 844px; box-sizing: border-box; padding: 20px 20px 24px; display: flex; flex-direction: column; gap: 14px; font-family: Manrope, system-ui, sans-serif;">
+  <div style="display: flex; align-items: center; justify-content: space-between;">
+    <a class="jx-icon-btn" href="PorConfirmar.dc.html" aria-label="Volver"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></a>
+    <h1 style="margin: 0; font-size: 20px; line-height: 26px; font-weight: 600;">Buscar SMS del banco</h1>
+    <span style="width: 40px;"></span>
+  </div>
+
+  <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;">
+    <div class="jx-field"><label for="from">Desde</label><input id="from" value="27 oct 2026"></div>
+    <div class="jx-field"><label for="to">Hasta</label><input id="to" value="3 nov 2026"></div>
+  </div>
+  <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+    <button class="preset">3 días</button><button class="preset on">7 días</button><button class="preset">15 días</button><button class="preset">30 días</button>
+  </div>
+
+  <div style="font: 500 13px/18px Manrope, system-ui, sans-serif; color: #a6b0c9;">9 SMS · <span style="color: #4ade96;">2 sin registrar</span> · 7 ya registrados</div>
+
+  <div style="display: flex; flex-direction: column; gap: 8px;">
+    <label class="sms"><input type="checkbox" checked><span class="main"><strong>Compraste en Rappi Colombia</strong><small>1 nov · 21:12 · sin registrar</small></span><span class="amt">−42.900</span></label>
+    <label class="sms"><input type="checkbox" checked><span class="main"><strong>Recibiste una transferencia</strong><small>31 oct · 10:47 · sin registrar</small></span><span class="amt" style="color: #4ade96;">+180.000</span></label>
+    <label class="sms done"><input type="checkbox"><span class="main"><strong>Pagaste a ADDI</strong><small>30 oct · 09:40 · parece ya registrado</small></span><span class="amt">−687.906</span></label>
+    <label class="sms done"><input type="checkbox"><span class="main"><strong>Pago de nómina</strong><small>30 oct · 06:10 · parece ya registrado</small></span><span class="amt" style="color: #4ade96;">+1.887.535</span></label>
+    <label class="sms done"><input type="checkbox"><span class="main"><strong>Compraste en Parqueadero VE</strong><small>30 oct · 08:55 · parece ya registrado</small></span><span class="amt">−2.599</span></label>
+  </div>
+
+  <p style="margin: 0; font: 400 12px/17px Manrope, system-ui, sans-serif; color: #8a95b1;">Las notificaciones de las apps no se pueden recuperar: Android no las guarda.</p>
+
+  <a class="jx-btn jx-btn--primary jx-btn--block" href="PorConfirmar.dc.html" style="text-decoration: none; box-sizing: border-box; margin-top: auto;">Enviar 2 a Por confirmar</a>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

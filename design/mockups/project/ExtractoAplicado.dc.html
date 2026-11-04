@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Extracto aplicado</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#b9cbff}a:hover{color:#f4f6fc}
+.kv{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px dashed #26314f;font:400 14px/20px Manrope,system-ui,sans-serif;color:#a6b0c9}
+.kv:last-child{border-bottom:0}
+.kv strong{font-weight:600;color:#f4f6fc;font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div class="jx-screen" style="width: 390px; height: 844px; box-sizing: border-box; padding: 20px 24px 28px; display: flex; flex-direction: column; align-items: center; gap: 20px; font-family: Manrope, system-ui, sans-serif;">
+  <div class="jx-steps" style="width: 100%;"><span class="is-on"></span><span class="is-on"></span><span class="is-on"></span></div>
+  <div class="jx-success" style="margin-top: 28px;">
+    <span class="jx-success__disc"><svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
+  </div>
+  <div style="display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center;">
+    <h1 style="margin: 0; font-size: 26px; line-height: 32px; font-weight: 600;">Nu quedó cuadrada</h1>
+    <p style="margin: 0; font-size: 15px; line-height: 22px; color: #a6b0c9;">La app ya muestra lo mismo que tu extracto.</p>
+  </div>
+
+  <div class="jx-panel" style="width: 100%; box-sizing: border-box; gap: 0; padding: 6px 18px;">
+    <div class="kv"><span>Movimientos agregados</span><strong>3</strong></div>
+    <div class="kv"><span>Pago mínimo</span><strong>$ 443.626</strong></div>
+    <div class="kv"><span>Fecha límite</span><strong>18 nov</strong></div>
+    <div class="kv"><span>Deuda al corte</span><strong>$ 502.451</strong></div>
+  </div>
+
+  <a class="jx-banner" href="PagarTarjeta.dc.html" style="text-decoration: none; box-sizing: border-box;">Programa el pago de $ 443.626 antes del 18 nov <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg></a>
+
+  <div style="display: flex; flex-direction: column; gap: 6px; width: 100%; margin-top: auto;">
+    <a class="jx-btn jx-btn--primary jx-btn--block" href="Cuentas.dc.html" style="text-decoration: none; box-sizing: border-box;">Ver mis tarjetas</a>
+    <a class="jx-btn jx-btn--ghost jx-btn--block" href="Main.dc.html" style="text-decoration: none; box-sizing: border-box;">Ir al inicio</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

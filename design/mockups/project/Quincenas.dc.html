@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Quincenas</title>
+<script src="./support.js"></script>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#b9cbff}a:hover{color:#f4f6fc}
+.tab{min-height:40px;border:0;border-radius:999px;background:transparent;color:#a6b0c9;font:500 14px/20px Manrope,system-ui,sans-serif}
+.tab.on{background:#f4f6fc;color:#0e1530}
+.ob{display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;background:#111a31;border:1px solid #26314f}
+.ob .m{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.ob strong{font:600 14px/20px Manrope,system-ui,sans-serif}
+.ob small{font:400 12px/16px Manrope,system-ui,sans-serif;color:#8a95b1}
+.ob .a{font:600 14px/20px Manrope,system-ui,sans-serif;font-variant-numeric:tabular-nums}
+.ob.paid{opacity:.6}
+.ob.paid .a{text-decoration:line-through}
+.chk{width:22px;height:22px;border-radius:999px;border:2px solid #5d6b96;box-sizing:border-box;flex-shrink:0;display:grid;place-items:center}
+.chk.on{background:#4ade96;border-color:#4ade96;color:#05070f}
+</style>
+</helmet>
+<div class="jx-screen" style="position: relative; width: 390px; height: 844px; box-sizing: border-box; padding: 20px 20px 0; display: flex; flex-direction: column; gap: 14px; overflow: hidden; font-family: Manrope, system-ui, sans-serif;">
+  <div style="display: flex; align-items: center; justify-content: space-between;">
+    <h1 style="margin: 0; font-size: 20px; line-height: 26px; font-weight: 600;">Quincenas</h1>
+    <button class="jx-icon-btn" aria-label="Agregar obligación"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+  </div>
+
+  <div class="jx-segmented"><button class="tab on">Quincena del 15</button><button class="tab">Quincena del 30</button></div>
+
+  <div class="jx-panel" style="gap: 10px;">
+    <div class="jx-panel__head"><span class="jx-panel__label">Te llega</span><span class="jx-chip">Neto</span></div>
+    <span class="jx-panel__amount" style="font-size: 30px; line-height: 36px;">$ 1.887.333</span>
+    <div class="jx-progress jx-progress--thin is-danger"><div class="jx-progress__fill" style="width: 100%;"></div></div>
+    <div style="display: flex; justify-content: space-between; font: 500 13px/18px Manrope, system-ui, sans-serif;"><span style="color: #a6b0c9;">Comprometido $ 1.969.626</span><span style="color: #ff7a88;">Falta $ 82.293</span></div>
+  </div>
+
+  <div style="display: flex; flex-direction: column; gap: 8px;">
+    <div class="ob paid"><span class="chk on"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span><span class="m"><strong>Casa + Madre</strong><small>Casa</small></span><span class="a">$ 400.000</span></div>
+    <div class="ob"><span class="chk"></span><span class="m"><strong>Pago tarjeta NU</strong><small>Vence 18 nov</small></span><span class="a">$ 443.626</span></div>
+    <div class="ob"><span class="chk"></span><span class="m"><strong>Moto</strong><small>Moto</small></span><span class="a">$ 450.000</span></div>
+    <div class="ob"><span class="chk"></span><span class="m"><strong>Reloj</strong><small>Cuota 4 de 6</small></span><span class="a">$ 70.000</span></div>
+    <div class="ob" style="border-style: dashed;"><span class="chk" style="border-color: #4f6fdc;"></span><span class="m"><strong>Ahorro de metas</strong><small>Mundial 2030 · desde ene 2027</small></span><span class="a" style="color: #b9cbff;">$ 0</span></div>
+  </div>
+
+  <div style="position: absolute; left: 20px; right: 20px; bottom: 20px;">
+    <dc-import name="Nav" active="budget" hint-size="350px,66px"></dc-import>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
