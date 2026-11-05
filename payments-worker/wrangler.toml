@@ -5,13 +5,12 @@ compatibility_date = "2026-10-01"
 # Valores públicos (los secretos van con `npx wrangler secret put`, ver README.md)
 [vars]
 FIREBASE_PROJECT_ID = "finance-dashboard-79e1f"
-# Dónde vuelve Wompi si la app no manda una dirección válida.
-# Mientras no haya versión publicada es el local; después, la dirección de Vercel
-APP_URL = "http://localhost:5174"
+# Dónde vuelve Wompi después de pagar si la app no manda una dirección válida
+APP_URL = "https://www.tuplataaldia.com"
 # Orígenes que pueden pedir el enlace de pago, separados por coma
-# (la app web, el servidor de desarrollo y la app Android de Capacitor)
-ALLOWED_ORIGINS = "http://localhost:5174,http://localhost:5175,https://localhost"
+# (la web, el servidor de desarrollo y la app Android de Capacitor)
+ALLOWED_ORIGINS = "https://www.tuplataaldia.com,https://tuplataaldia.com,http://localhost:5174,http://localhost:5175,https://localhost"
 
-# Registros del servicio en Cloudflare (Workers > tuplata-pagos > Observability). Plan gratis: 3 d�as
+# Registros del servicio en Cloudflare (Workers > tuplata-pagos > Observability). Plan gratis: 3 días
 [observability]
 enabled = true

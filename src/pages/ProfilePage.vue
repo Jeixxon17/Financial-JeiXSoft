@@ -7,26 +7,12 @@
       </div>
     </div>
 
-    <!-- Cuenta anterior (v1): actualizar el acceso -->
-    <section v-if="authState.legacy" class="flex flex-col gap-3 rounded-card border border-primary bg-primary-soft/50 p-5 sm:flex-row sm:items-center">
-      <span class="grid size-11 shrink-0 place-items-center rounded-full bg-primary text-white [&_svg]:size-5">
-        <ShieldCheck :stroke-width="1.75" aria-hidden="true" />
-      </span>
-      <span class="flex flex-1 flex-col gap-0.5">
-        <strong class="text-[15px] font-semibold">Actualiza tu acceso</strong>
-        <span class="text-[13px]/[19px] text-ink-muted">
-          Hoy entras con el PIN como contraseña. Pasa a Google o correo, y el PIN queda solo como bloqueo.
-        </span>
-      </span>
-      <TpButton size="sm" @click="showUpgrade = true">Actualizar</TpButton>
-    </section>
-
     <!-- Tu cuenta -->
     <section class="flex items-center gap-3 rounded-card border border-line bg-surface-100 p-5">
       <span class="grid size-12 shrink-0 place-items-center rounded-full bg-surface-300 text-lg font-bold">{{ initials }}</span>
       <span class="flex min-w-0 flex-1 flex-col">
         <strong class="truncate text-base font-semibold">{{ authState.name || 'Mi cuenta' }}</strong>
-        <small class="truncate text-[13px] text-ink-faint">{{ authState.legacy ? 'Cuenta anterior (entra con PIN)' : authState.email }}</small>
+        <small class="truncate text-[13px] text-ink-faint">{{ authState.email }}</small>
       </span>
       <TpButton size="sm" variant="secondary" @click="signOutUser">
         <LogOut :stroke-width="1.75" aria-hidden="true" />
@@ -86,7 +72,7 @@
         </button>
         <button type="button" :class="row" @click="lockApp">
           <LockKeyhole :stroke-width="1.75" aria-hidden="true" />
-          <span class="flex flex-1 flex-col"><strong class="font-medium">Bloquear ahora</strong><small :class="small">{{ authState.legacy ? 'Cierra la sesión: vuelves a entrar con tu PIN' : 'También se bloquea sola tras 5 min en segundo plano' }}</small></span>
+          <span class="flex flex-1 flex-col"><strong class="font-medium">Bloquear ahora</strong><small :class="small">También se bloquea sola tras 5 min en segundo plano</small></span>
         </button>
       </section>
 
@@ -155,7 +141,6 @@
   </TpLayout>
 
   <ChangePinModal v-if="showChangePin" @close="showChangePin = false" />
-  <UpgradeAccessSheet v-if="showUpgrade" @close="showUpgrade = false" />
   <LegalSheet v-if="openDoc" :doc-key="openDoc" @close="openDoc = null" />
   <DeleteAccountSheet v-if="showDelete" @close="showDelete = false" />
   <TpConfirm
@@ -196,7 +181,6 @@ import { hasConsent, revokeConsent } from '@/services/consent.service'
 import { mediumDate, money } from '@/components/tp/format'
 import { PLAN_PRICE, hasFullPlan, openUpgrade } from '@/services/plan.service'
 import TpButton from '@/components/tp/TpButton.vue'
-import UpgradeAccessSheet from '@/components/security/UpgradeAccessSheet.vue'
 import TpLayout from '@/layouts/TpLayout.vue'
 import ChangePinModal from '@/components/security/ChangePinModal.vue'
 import appIcon from '@/assets/brand/tuplata-app-icon.svg'
@@ -207,7 +191,6 @@ import { useFinanceStore } from '@/stores/finance'
 const store = useFinanceStore()
 const appVersion = __APP_VERSION__
 const showChangePin = ref(false)
-const showUpgrade = ref(false)
 
 // ---------- Privacidad y datos ----------
 const openDoc = ref<LegalDocKey | null>(null)

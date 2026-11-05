@@ -8,7 +8,7 @@ import {
 import { collection, deleteDoc, doc, getDocs, writeBatch } from 'firebase/firestore'
 import { Capacitor } from '@capacitor/core'
 import { auth, db } from '@/firebase/config'
-import { LEGACY_COLLECTIONS } from '@/services/migration.service'
+import { USER_COLLECTIONS } from '@/firebase/dataRoot'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Eliminar la cuenta (lo pide Google Play y la Ley 1581: supresión de datos).
@@ -43,7 +43,7 @@ export async function deleteAccount(password?: string) {
   }
 
   // 2. Borrar sus datos
-  for (const name of LEGACY_COLLECTIONS) {
+  for (const name of USER_COLLECTIONS) {
     const snap = await getDocs(collection(db, 'users', user.uid, name))
     for (let start = 0; start < snap.docs.length; start += 400) {
       const batch = writeBatch(db)

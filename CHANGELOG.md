@@ -34,6 +34,23 @@ la app web, la PWA y el APK de Android (se ve en el menú y en la pantalla del P
 - Se quitó "Entrar con mi PIN (cuenta anterior)": la cuenta del dueño ya se
   migró y entra con su correo o Google.
 
+### Limpieza de la v1
+- Se borró todo el código de la v1 que quedaba: la cuenta anterior (correo fijo
+  y PIN como contraseña), "Actualiza tu acceso" y el servicio de migración.
+  Los datos siempre van en `users/{uid}`: sin sesión no se lee ni escribe nada
+  (antes se usaban las colecciones generales).
+- Reglas de Firestore solo para `users/{uid}`. Las colecciones generales de la
+  v1 quedan en la base como respaldo (no se borran) y se ven en Firebase Console.
+- El lector de Android ya no sube a la colección general si no tiene la ruta
+  del usuario.
+- Corregido: cambiar el PIN en el perfil migrado del dueño podía sembrarle las
+  categorías por defecto (el perfil migrado no tiene fecha de creación).
+
+### Dominio
+- www.tuplataaldia.com en los textos legales y en el servicio de pagos
+  (dirección de regreso de Wompi y orígenes permitidos).
+- Datos de contacto del responsable en el `.env` (sin cédula).
+
 ### Landing para descargar la app
 - La app es para Android (Google Play). En el navegador, sin sesión, se abre
   una landing (`pages/LandingPage.vue`) con el design system: portada con

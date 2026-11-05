@@ -57,7 +57,7 @@ export function watchNotificationSession() {
   if (!canReadNotifications || watching) return
   watching = true
   onIdTokenChanged(auth, () => pushSession())
-  watch(() => [authState.ready, authState.uid, authState.legacy, authState.plan, authState.consents.notifications], () => pushSession())
+  watch(() => [authState.ready, authState.uid, authState.plan, authState.consents.notifications], () => pushSession())
 }
 export async function getNotificationStatus(): Promise<NotificationStatus | null> {
   if (!canReadNotifications) return null

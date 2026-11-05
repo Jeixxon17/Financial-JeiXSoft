@@ -1,20 +1,15 @@
 import {
-  EmailAuthProvider,
   GoogleAuthProvider,
   browserLocalPersistence,
   createUserWithEmailAndPassword,
-  linkWithPopup,
   onAuthStateChanged,
-  reauthenticateWithCredential,
   sendEmailVerification,
   sendPasswordResetEmail,
   setPersistence,
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut,
-  updatePassword,
   updateProfile,
-  verifyBeforeUpdateEmail,
   type User
 } from 'firebase/auth'
 import { doc, getDoc, onSnapshot, setDoc, type Unsubscribe } from 'firebase/firestore'
@@ -34,22 +29,18 @@ import type { Consents } from '@/legal/legal'
 // - El PIN de 6 dígitos ya no es la contraseña: es el bloqueo de la app. Se
 //   guarda cifrado (PBKDF2) en users/{uid} y se pide al abrir la app y tras 5
 //   minutos en segundo plano.
-// - Cuenta anterior del dueño (v1): correo fijo OWNER_EMAIL y contraseña
-//   derivada del PIN. Sigue funcionando igual hasta que el dueño "actualiza su
-//   acceso" desde Perfil (services/migration.service.ts).
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const OWNER_EMAIL = 'owner@financial-jeixsoft.app'
 export const PIN_LENGTH = 6
 
-// Documento público que solo dice si la cuenta anterior ya tiene PIN
-const SETUP_DOC = doc(db, 'meta', 'security')
+// Dice cuál es el uid del dueño (tiene el plan Completo siempre)
+const OWNER_DOC = doc(db, 'meta', 'security')
 
 export interface UserProfile {
   name?: string
   email?: string
   createdAt?: string
-  // Datos ya copiados a users/{uid} (solo la cuenta anterior del dueño)
+  // Perfil que vino de la v1 (el del dueño): ya tiene sus datos, no se trata como nuevo
   migrated?: boolean
   migratedAt?: string
   pin?: { salt: string; hash: string; iterations: number }
@@ -68,8 +59,6 @@ export const authState = reactive({
   uid: '',
   email: '',
   name: '',
-  // Cuenta anterior del dueño, todavía sin actualizar (entra con PIN como contraseña)
-  legacy: false,
   // El usuario ya creó su PIN de bloqueo
   pinSet: false,
   // Escribió el PIN en esta apertura de la app
@@ -89,14 +78,11 @@ let profile: UserProfile | null = null
 const profileDoc = (uid: string) => doc(db, 'users', uid)
 let stopProfile: Unsubscribe | null = null
 
-// Plan: el dueño (cuenta anterior o su uid en meta/security) tiene todo; los demás
-// según lo que escribió el servicio de pagos en su perfil
+// Plan: el dueño (su uid en meta/security) tiene todo; los demás según lo que
+// escribió el servicio de pagos en su perfil
 async function applyPlan(user: User) {
-  let owner = user.email === OWNER_EMAIL
-  if (!owner) {
-    const setup = await getDoc(SETUP_DOC).catch(() => null)
-    owner = setup?.exists() === true && setup.data().uid === user.uid
-  }
+  const setup = await getDoc(OWNER_DOC).catch(() => null)
+  const owner = setup?.exists() === true && setup.data().uid === user.uid
   authState.plan = owner || profile?.plan === 'completo' ? 'completo' : 'gratis'
   authState.planInfo = profile?.planInfo || null
 }
@@ -141,7 +127,7 @@ async function applyUser(user: User | null) {
 
   if (!user) {
     setDataRoot(null)
-    Object.assign(authState, { legacy: false, pinSet: false, unlocked: false })
+    Object.assign(authState, { pinSet: false, unlocked: false })
     return
   }
 
@@ -149,23 +135,12 @@ async function applyUser(user: User | null) {
     const snap = await getDoc(profileDoc(user.uid))
     profile = snap.exists() ? (snap.data() as UserProfile) : null
   } catch {
-    // La cuenta anterior sin las reglas nuevas publicadas no puede leer users/{uid}
     profile = null
   }
 
   authState.consents = profile?.consents || {}
-  const isOwnerAccount = user.email === OWNER_EMAIL
-  authState.legacy = isOwnerAccount && !profile?.migrated
   authState.name = user.displayName || profile?.name || ''
   await applyPlan(user)
-
-  if (authState.legacy) {
-    // Cuenta anterior: sus datos siguen en las colecciones generales y ya
-    // escribió el PIN para entrar
-    setDataRoot(null)
-    Object.assign(authState, { pinSet: true, unlocked: true })
-    return
-  }
 
   setDataRoot(user.uid)
   authState.pinSet = !!profile?.pin
@@ -180,13 +155,8 @@ export async function signOutUser() {
   window.location.reload()
 }
 
-// Bloquear: la cuenta anterior cierra sesión (su PIN es la contraseña); las
-// demás conservan la sesión y piden el PIN otra vez
-export async function lockApp() {
-  if (authState.legacy) {
-    await signOut(auth)
-    return
-  }
+// Bloquear: conserva la sesión y pide el PIN otra vez
+export function lockApp() {
   authState.unlocked = false
 }
 
@@ -216,7 +186,7 @@ export async function loginWithGoogle() {
   await setPersistence(auth, browserLocalPersistence)
   const { user } = await signInWithPopup(auth, new GoogleAuthProvider())
   const snap = await getDoc(profileDoc(user.uid))
-  if (!snap.exists() && user.email !== OWNER_EMAIL) {
+  if (!snap.exists()) {
     await ensureProfile(user).catch(error => console.error('Perfil pendiente', error))
   }
 }
@@ -226,9 +196,10 @@ export async function resetPassword(email: string) {
 }
 
 // Perfil y categorías iniciales de un usuario nuevo. Se puede llamar varias veces:
-// solo hace algo si el perfil todavía no tiene fecha de creación
+// solo hace algo si el perfil todavía no tiene fecha de creación. Un perfil migrado
+// de la v1 (el del dueño) no tiene createdAt pero ya tiene sus datos: no se toca
 async function ensureProfile(user: User) {
-  if (profile?.createdAt || user.email === OWNER_EMAIL) return
+  if (profile?.createdAt || profile?.migrated) return
   const data = { name: user.displayName || authState.name || '', email: user.email || '', createdAt: new Date().toISOString() }
   await setDoc(profileDoc(user.uid), data, { merge: true })
   await seedNewUser(user.uid)
@@ -259,7 +230,7 @@ export async function setLockPin(pin: string) {
   const salt = crypto.getRandomValues(new Uint8Array(16))
   const pinData = { salt: toBase64(salt), hash: await hashPin(pin, salt, PIN_ITERATIONS), iterations: PIN_ITERATIONS }
   // Usuario nuevo cuyo perfil no se alcanzó a guardar al registrarse
-  if (!authState.legacy) await ensureProfile(user)
+  await ensureProfile(user)
   await setDoc(profileDoc(user.uid), { pin: pinData }, { merge: true })
   profile = { ...(profile || {}), pin: pinData }
   sessionStorage.removeItem(RESET_PIN_FLAG)
@@ -284,46 +255,10 @@ export async function forgotPin() {
 export async function changePin(currentPin: string, newPin: string) {
   const user = auth.currentUser
   if (!user) throw new Error('not-signed-in')
-
-  if (authState.legacy) {
-    // Cuenta anterior: el PIN es la contraseña
-    await reauthenticateWithCredential(user, EmailAuthProvider.credential(OWNER_EMAIL, legacyPassword(currentPin)))
-    await updatePassword(user, legacyPassword(newPin))
-    return
-  }
   await unlockWithPin(currentPin).catch(() => {
     throw Object.assign(new Error('wrong-pin'), { code: 'tp/wrong-pin' })
   })
   await setLockPin(newPin)
-}
-
-// ───────────────────────────── Cuenta anterior (v1) ─────────────────────────────
-
-// Firebase pide contraseñas de 6+ caracteres; el PIN se envuelve en una fija
-// (Ya no se puede entrar con el PIN desde la pantalla de acceso: la cuenta del dueño se migró.)
-const legacyPassword = (pin: string) => `jx-pin-${pin}`
-
-// ─ Actualizar el acceso de la cuenta anterior (lo usa migration.service) ─
-
-// Confirma el PIN actual (Firebase pide haber entrado hace poco para cambiar credenciales)
-export async function confirmLegacyPin(pin: string) {
-  const user = auth.currentUser
-  if (!user) throw new Error('not-signed-in')
-  await reauthenticateWithCredential(user, EmailAuthProvider.credential(OWNER_EMAIL, legacyPassword(pin)))
-}
-
-export async function linkGoogle() {
-  const user = auth.currentUser
-  if (!user) throw new Error('not-signed-in')
-  await linkWithPopup(user, new GoogleAuthProvider())
-}
-
-// Contraseña nueva y correo real (el correo cambia cuando se confirma el enlace que llega)
-export async function setRealCredentials(email: string, password: string) {
-  const user = auth.currentUser
-  if (!user) throw new Error('not-signed-in')
-  await updatePassword(user, password)
-  if (email.trim() && email.trim() !== user.email) await verifyBeforeUpdateEmail(user, email.trim())
 }
 
 // ───────────────────────────── Mensajes ─────────────────────────────

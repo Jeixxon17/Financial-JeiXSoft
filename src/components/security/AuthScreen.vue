@@ -1,5 +1,5 @@
 <template>
-  <!-- Acceso: bienvenida, iniciar sesión, crear cuenta, recuperar contraseña y la cuenta anterior (PIN) -->
+  <!-- Acceso: bienvenida, iniciar sesión, crear cuenta y recuperar contraseña -->
   <div class="flex min-h-dvh bg-screen font-sans text-ink antialiased lg:bg-desk">
     <!-- ===== Escritorio: la marca a la izquierda ===== -->
     <section class="relative hidden flex-1 flex-col justify-center gap-10 overflow-hidden px-16 py-12 lg:flex">

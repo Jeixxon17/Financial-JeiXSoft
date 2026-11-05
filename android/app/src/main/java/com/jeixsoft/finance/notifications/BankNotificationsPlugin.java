@@ -86,8 +86,12 @@ public class BankNotificationsPlugin extends Plugin {
             call.reject("Faltan datos de sesión");
             return;
         }
-        // Colección del usuario (users/{uid}/pendingTransactions); sin ella, la general de la v1
-        String collectionPath = call.getString("collectionPath", "pendingTransactions");
+        // Colección del usuario (users/{uid}/pendingTransactions)
+        String collectionPath = call.getString("collectionPath");
+        if (collectionPath == null) {
+            call.reject("Falta la colección del usuario");
+            return;
+        }
         PendingStore.get(getContext()).saveSession(apiKey, projectId, refreshToken, collectionPath);
         UploadWorker.uploadNow(getContext());
         call.resolve();

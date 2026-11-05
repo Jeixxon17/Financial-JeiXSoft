@@ -1,8 +1,7 @@
 /*
  * TuPlataAlDia (v2) — design system como tema de Tailwind 4.
  * Fuente de verdad: design/design-system/project/tokens.json.
- * Los nombres no chocan con las variables de la v1 (--bg-base, --border…):
- * Tailwind los guarda como --color-*, --radius-*, --shadow-*, --animate-*.
+ * Tailwind guarda los tokens como --color-*, --radius-*, --shadow-*, --animate-*.
  *
  * Uso: bg-bg-base, bg-surface-100/200/300, border-line, text-ink,
  * text-ink-muted, bg-primary, text-accent-light, rounded-card, shadow-float…
@@ -39,7 +38,7 @@
   --color-chart-income: #22a465;
   --color-chart-expense: #5f7fe8;
 
-  /* Radios propios (no se tocan los rounded-sm/md/lg de Tailwind que usa la v1) */
+  /* Radios propios del design system */
   --radius-chip: 8px;
   --radius-tile: 14px;
   --radius-card: 20px;

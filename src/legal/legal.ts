@@ -15,6 +15,9 @@ export const PRIVACY_VERSION = '2026-11-05'
 
 const env = (key: string) => ((import.meta.env[key] as string | undefined) || '').trim()
 
+// Sitio web de la app (landing, versión web y documentos legales)
+export const SITE_DOMAIN = 'www.tuplataaldia.com'
+
 // Responsable del tratamiento y proveedor del servicio (art. 50 Ley 1480: identificarse)
 export const legalOwner = {
   name: env('VITE_LEGAL_NAME') || 'JeiXSoft',

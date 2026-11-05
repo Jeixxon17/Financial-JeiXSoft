@@ -1,4 +1,4 @@
-import { PRIVACY_VERSION, TERMS_VERSION, legalOwner } from './legal'
+import { PRIVACY_VERSION, SITE_DOMAIN, TERMS_VERSION, legalOwner } from './legal'
 
 // Textos legales. Borrador para revisar con un abogado antes de publicar en Google Play.
 // Al cambiar un texto, cambiar su versión en legal.ts (la app pide aceptarlo de nuevo).
@@ -55,7 +55,7 @@ function terms(): LegalDocument {
     title: 'Términos y condiciones',
     updated: longDate(TERMS_VERSION),
     intro:
-      'Estos términos regulan el uso de TuPlataAlDia (la app para Android y su versión web). Al crear tu cuenta y usar la app aceptas estos términos y la Política de tratamiento de datos personales.',
+      `Estos términos regulan el uso de TuPlataAlDia (la app para Android y su versión web en ${SITE_DOMAIN}). Al crear tu cuenta y usar la app aceptas estos términos y la Política de tratamiento de datos personales.`,
     sections: [
       {
         title: '1. Quién presta el servicio',
@@ -286,7 +286,7 @@ function deletion(): LegalDocument {
       {
         title: 'Desde el navegador, sin instalar la app',
         bullets: [
-          'Toca "Volver" para ir a la página de inicio, luego "Iniciar sesión", y entra con tu correo o Google.',
+          `Entra a ${SITE_DOMAIN}, toca "Iniciar sesión" y entra con tu correo o Google.`,
           'Sigue los mismos pasos: Perfil > Privacidad y datos > Eliminar mi cuenta.'
         ]
       },

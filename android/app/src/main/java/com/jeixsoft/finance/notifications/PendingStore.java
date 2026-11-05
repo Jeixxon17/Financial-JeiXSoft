@@ -126,9 +126,9 @@ public class PendingStore {
             .apply();
     }
 
-    // Dónde se suben las notificaciones (users/{uid}/pendingTransactions o la general)
+    // Dónde se suben las notificaciones (users/{uid}/pendingTransactions)
     public String getCollectionPath() {
-        return prefs.getString(KEY_COLLECTION_PATH, "pendingTransactions");
+        return prefs.getString(KEY_COLLECTION_PATH, null);
     }
 
     public synchronized void updateRefreshToken(String refreshToken) {
@@ -148,6 +148,6 @@ public class PendingStore {
     }
 
     public boolean hasSession() {
-        return getApiKey() != null && getProjectId() != null && getRefreshToken() != null;
+        return getApiKey() != null && getProjectId() != null && getRefreshToken() != null && getCollectionPath() != null;
     }
 }

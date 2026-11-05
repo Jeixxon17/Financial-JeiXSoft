@@ -1,5 +1,5 @@
 <template>
-  <!-- También se usa en el modal de cambiar PIN de la v1 -->
+  <!-- Teclado del PIN (pantalla del PIN y cambiar PIN) -->
   <div class="flex w-full flex-1 flex-col items-center font-sans lg:flex-none">
     <div
       class="flex gap-3.5 lg:gap-2.5"

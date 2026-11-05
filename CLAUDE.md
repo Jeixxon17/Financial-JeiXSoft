@@ -4,25 +4,23 @@ Contexto del proyecto para trabajar en él. Todo en español: la app, los textos
 
 ## Qué es
 
-**Financial JeiXSoft** (v1.x, rama `main`) es una app personal de finanzas en pesos colombianos: cuentas, tarjetas de crédito, movimientos, quincenas, metas de ahorro y un asesor. Lee las notificaciones y SMS del banco (Bancolombia, NU) desde una app Android y las deja en "Por confirmar".
-
-**TuPlataAlDia** (v2, rama `version_two`) es la nueva versión, pensada para **comercializarse al público**: varios usuarios, registro e inicio de sesión, onboarding y un diseño nuevo. El diseño ya está hecho; la construcción de la v2 aún no empieza.
+**TuPlataAlDia** (v2, rama `version_two`, va a `main`) es una app de finanzas personales en pesos colombianos para **comercializarse al público** (Google Play, web en www.tuplataaldia.com): cuentas, tarjetas de crédito, movimientos, quincenas, presupuesto, metas de ahorro y un asesor. Lee las notificaciones y SMS del banco (Bancolombia, NU) desde la app Android y las deja en "Por confirmar". Varios usuarios con registro e inicio de sesión. Viene de la app personal Financial JeiXSoft (v1, ya retirada del código).
 
 ## Stack
 
 - Vue 3 (`<script setup>`, TypeScript con `erasableSyntaxOnly`: nada de parameter properties en constructores), Pinia (un store: `src/stores/finance.ts`), Vite 8, Tailwind 4 (más CSS propio con variables).
 - Firebase **plan Spark (gratis)**. Nunca proponer nada que requiera Blaze (Cloud Functions, etc.).
-  - Firestore, por usuario: `users/{uid}` (perfil: nombre, PIN cifrado, `migrated`) y `users/{uid}/accounts|transactions|categories|paychecks|recurringExpenses|pendingTransactions|budgets|savingsGoals`. Los servicios usan `userCollection()`/`userDoc()` de `firebase/dataRoot.ts`, nunca `collection(db, …)` directo.
-  - Las colecciones generales (`accounts`, `transactions`… y `meta/security`) son los datos de la v1 del dueño: los sigue usando su cuenta anterior hasta que actualice su acceso, y después quedan de respaldo (no se borran).
+  - Firestore, por usuario: `users/{uid}` (perfil: nombre, PIN cifrado, autorizaciones, plan) y `users/{uid}/…` (`USER_COLLECTIONS` en `firebase/dataRoot.ts`). Los servicios usan `userCollection()`/`userDoc()` de `firebase/dataRoot.ts`, nunca `collection(db, …)` directo (sin sesión lanzan error).
+  - Las colecciones generales (`accounts`, `transactions`…) son los datos de la v1 del dueño: ya se migraron a su `users/{uid}` (2026-11-05, verificado). Quedan en la base de respaldo, **no se borran**; la app y las reglas ya no las usan (se ven en Firebase Console). `meta/security.uid` dice quién es el dueño (plan Completo siempre).
   - Auth (`services/auth.service.ts`): correo y contraseña o Google (Google solo en el navegador; en Android falta el plugin nativo). Sesión persistente (`browserLocalPersistence`). El PIN de 6 dígitos es el **bloqueo** de la app, no la contraseña: se guarda cifrado con PBKDF2 en `users/{uid}.pin`, se pide al abrir y tras 5 min en segundo plano. "Olvidé mi PIN" cierra sesión y al volver a entrar se crea otro.
-  - Cuenta anterior del dueño (v1): **ya migrada (2026-11-05)**; el botón "Entrar con mi PIN (cuenta anterior)" se quitó en la 2.1 y el dueño entra con su correo o Google. Antes entraba con `owner@financial-jeixsoft.app` y una contraseña derivada del PIN, usando las colecciones generales (quedan de respaldo). En Perfil > "Actualiza tu acceso" (`UpgradeAccessSheet` + `services/migration.service.ts`) copia sus datos a `users/{uid}` con los mismos ids, guarda el PIN como bloqueo y vincula Google y/o correo con contraseña (el mismo uid: no cambia de dueño). Desde ese momento la v1.14 del celular deja de servir.
-  - `firestore.rules`: cada usuario solo lo suyo; las colecciones generales solo el dueño (por su correo anterior o por el uid de `meta/security`). Compatibles con la v1.14. Se publican a mano en Firebase Console > Firestore > Reglas.
+  - El perfil del dueño tiene `migrated: true` y no tiene `createdAt`: `ensureProfile` no lo trata como usuario nuevo (no le siembra categorías). El código de la cuenta anterior y de la migración se borró en la 2.1.
+  - `firestore.rules`: cada usuario solo lo suyo (y puede borrar su perfil); `meta/security` solo lectura con sesión. Se publican a mano en Firebase Console > Firestore > Reglas.
   - Usuarios nuevos arrancan con categorías por defecto (`services/onboarding.service.ts`).
   - **Plan**: Gratis (Inicio, Movimientos, Cuentas, registrar, Quincenas, Categorías, Perfil) o Completo, pago único de $ 50.000 (no mensualidad) que desbloquea Por confirmar, Presupuesto, asesor, Gastos automáticos, extractos/cuadrar y Estadísticas. Todo en `services/plan.service.ts` (`hasFullPlan`, `requirePlan`, `openUpgrade`); rutas con `meta.pro` se ven con `PlanLockedPage`; enlaces con `pro: true` llevan candado. El dueño siempre tiene Completo.
   - **Legal** (`src/legal/`): términos, política de datos y eliminar cuenta (`documents.ts`, borrador para revisar con abogado; al cambiar un texto se cambia su versión en `legal.ts` y la app pide aceptarlo de nuevo). Autorizaciones en `users/{uid}.consents` (`services/consent.service.ts`: `hasConsent`, `saveConsents`, `useConsent` + `ConsentSheet` antes de extractos, lector y SMS). Eliminar cuenta en `services/accountDeletion.service.ts`. Datos del responsable en `VITE_LEGAL_*` (no en el código). El lector nativo solo guarda/sube con sesión entregada (requiere plan Completo y autorización).
   - **Landing**: la app es para Android (Google Play). En el navegador, sin sesión, `App.vue` muestra `pages/LandingPage.vue` (piezas en `components/landing/`); "Iniciar sesión" abre `AuthScreen` (versión web). En Capacitor no se muestra. Enlace de la tienda en `VITE_PLAY_STORE_URL` (vacío = "Muy pronto").
   - El pago es con Wompi a través de `payments-worker/` (Cloudflare Workers gratis, no Firebase): firma el enlace y, con el evento aprobado, escribe `users/{uid}.plan = 'completo'` y `planInfo` con una cuenta de servicio. Las reglas no dejan que el usuario escriba esos campos. La app los escucha con `onSnapshot`. Variables: `VITE_PAYMENTS_URL`, `VITE_WOMPI_ENV`. Los secretos solo en Cloudflare (`wrangler secret put`), nunca en el repo.
-  - El lector de Android sube a `users/{uid}/pendingTransactions` (la ruta llega en `setSession` como `collectionPath`; sin ella usa la general de la v1). Requiere APK nuevo.
+  - El lector de Android sube a `users/{uid}/pendingTransactions` (la ruta llega en `setSession` como `collectionPath`; sin ella no guarda ni sube nada).
 - PWA con `vite-plugin-pwa` (`injectRegister: null`). El service worker se registra solo en el navegador; dentro de Capacitor se desregistra.
 - Android con Capacitor 8 (`com.jeixsoft.finance`). Plugin nativo propio `BankNotifications` (ver Android).
 - pdf.js (`pdfjs-dist` 4.10.38) para leer extractos en el dispositivo; el PDF y su contraseña nunca salen del celular.
@@ -136,16 +134,16 @@ CHANGELOG.md, firestore.rules, capacitor.config.ts, vite.config.ts
 
 ## Estado actual (rama `version_two`)
 
-- Parte de `main` en la v1.14 (commit `aa488ad`). La app de producción sigue siendo la v1.14, instalada en el celular.
-- `design/` es solo para revisar las maquetas: está en `.gitignore` y fuera del control de versiones (se sacó con `git rm -r --cached design`; queda en disco). No se sube a GitHub.
-- Toda la app ya tiene el diseño de la v2 (2.0): no queda código de pantallas de la v1 (`AppLayout`, `TransactionModal`, `AccountCard`, gráficos con chart.js y el CSS viejo se borraron). Los datos y la lógica (store, utils, servicios, Android) son los mismos de la v1.
+- Va en la 2.1, instalada en el celular del dueño. Parte de `main` en la v1.14 (commit `aa488ad`); el PR `version_two` → `main` reemplaza la v1.
+- `design/` es solo para revisar las maquetas: está en `.gitignore` y fuera del control de versiones. No se sube a GitHub.
+- No queda código de la v1: ni pantallas, ni la cuenta anterior, ni la migración. La lógica de finanzas (store, utils, Android) viene de la v1 y se mantiene.
   - Hojas y modales: `TpSheet` (abajo en el celular, centrado en escritorio); confirmaciones con `TpConfirm`. Formatos de montos y fechas en `components/tp/format.ts`.
   - Las transferencias son dos movimientos con categoría `transfer` (gasto en el origen, ingreso en el destino). En listas se muestran una vez y al eliminar se quitan los dos.
   - Para ocultar un `TpButton` en un tamaño de pantalla, envolverlo (`<div class="hidden lg:block">`); para hacerlo pequeño, `size="sm"`.
   - **La v2 se escribe solo con Tailwind** (pedido de Jeison): nada de CSS propio ni `<style>` en las pantallas v2. El design system es el tema de Tailwind en `src/styles/theme.css` (`@theme`): colores `bg-bg-base`, `bg-surface-100/200/300`, `border-line`, `border-line-strong`, `text-ink`, `text-ink-muted`, `text-ink-faint`, `bg-primary`, `text-accent-light`, `text-success/danger/warning`; radios `rounded-chip/tile/card/sheet`; `shadow-card/float`; `animate-card-in/sheet-in/shake/breathe`. Los degradados largos son utilidades `@utility`: `bg-screen`, `bg-desk`, `bg-bank-card`, `shine`.
   - Toda rejilla de una columna en el celular lleva `grid-cols-[minmax(0,1fr)]`: sin eso la columna crece con el contenido (cifras largas) y se sale de la pantalla. Revisar a 320 y 360 px con cifras reales.
   - No juntar dos clases que tocan la misma propiedad (`relative` + `absolute`, `border-transparent` + `border-line`, `text-ink` + `text-ink-muted`): en Tailwind gana el orden del CSS, no el del atributo. Usar clases condicionales.
-  - Las reglas globales de la v1 en `style.css` que pisen etiquetas (`h1`…) van en `@layer base`; si no, le ganan a las clases de Tailwind. Las fuentes se cargan con `<link>` en `index.html`.
+  - Las reglas globales de `style.css` que pisen etiquetas (`h1`…) van en `@layer base`; si no, le ganan a las clases de Tailwind. Las fuentes se cargan con `<link>` en `index.html`.
   - **Skeleton loaders** en toda pantalla v2 que espere datos de Firebase: `TpSkeleton` (clase `skeleton` del tema; tamaño y forma los pone quien lo usa) con la misma forma del contenido real, y `BankCardSkeleton` para tarjetas. Se muestran según `store.loaded.<colección>` (primera carga; queda en true aunque falle). Cada bloque espera solo las colecciones que usa. No usar `store.loading` (es uno solo y se pisa entre cargas).
   - Patrones repetidos van como componentes (`TpButton`, `BankCardFace`, `HomeNotice`) o como constantes de clases (`bankCardClass` en `components/tp/cards.ts`).
   - Todas las pantallas van dentro de `TpLayout.vue` (`TpSide` en escritorio, `TpNav` en el celular; enlaces en `components/tp/navigation.ts`).
@@ -154,15 +152,15 @@ CHANGELOG.md, firestore.rules, capacitor.config.ts, vite.config.ts
 
 ## Siguientes pasos
 
-1. Hacer commit de la v2 en `version_two` cuando Jeison lo pida (`design/` no se sube).
-2. Armar el plan de la v2 y construirla:
-   - **Varios usuarios**: registro e inicio de sesión reales con Firebase Auth (correo/contraseña y Google), datos por usuario (`users/{uid}/...`), reglas de Firestore por `uid`, y el PIN y la huella como bloqueo local, ya no como contraseña. Debe seguir funcionando en Spark.
-   - **Migración** de los datos actuales del dueño a su usuario nuevo.
+1. Publicar la web en www.tuplataaldia.com (variables `VITE_*` en el hosting, dominio autorizado en Firebase Auth) y desplegar `payments-worker/` con el dominio.
+2. Google Play: cobro del plan (Google Play Billing o cobro alternativo si aplica en Colombia), declaración del permiso de SMS y de batería, sección de seguridad de datos, revisión legal de los textos.
+3. Pendientes de la v2:
    - **Onboarding**: cada cuánto le pagan, cuentas iniciales, permisos de notificaciones y SMS.
-   - **Quitar lo propio de Jeison** del código: nombre de la empresa de nómina, cuentas y categorías fijas, `debt-*` creadas por quincenas. (Ya se quitaron `mockData.ts` y el salario fijo de Quincenas.)
+   - **Quitar lo propio de Jeison** del código: nombre de la empresa de nómina, cuentas y categorías fijas, `debt-*` creadas por quincenas.
    - **Pantallas del diseño que faltan**: Huella y el Inicio de primera vez con "Primeros pasos".
-   - **Pagos**: crear la cuenta de Wompi y de Cloudflare, publicar `payments-worker/` y probar en Sandbox (`payments-worker/README.md`); publicar las reglas nuevas.
-3. Pendientes de la v1 que pasan a la v2:
+   - Google en Android (plugin nativo).
+   - Pagos en producción: llaves de Wompi de Producción y `VITE_WOMPI_ENV=production`.
+4. Pendientes que vienen de la v1:
    - Lector del extracto de Bancolombia (MasterCard Gold y ahorros), cuando haya un PDF de ejemplo.
    - `fxFeeRate` de la MasterCard Gold (falta el dato).
    - Limpiar los "Ajuste de cuenta" de MasterCard y el movimiento sin detalle de 226.624 en NU.

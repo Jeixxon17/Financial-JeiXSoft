@@ -1,12 +1,12 @@
 rules_version = '2';
 
-// TuPlataAlDia (v2). Publicar en Firebase Console > Firestore > Reglas.
+// TuPlataAlDia. Publicar en Firebase Console > Firestore > Reglas.
 //
 // - Cada usuario solo lee y escribe lo suyo: users/{uid} y users/{uid}/…
-// - La cuenta anterior del dueño (v1) sigue entrando a las colecciones generales
-//   (accounts, transactions…) mientras no actualice su acceso. Después se
-//   conservan de respaldo y solo él las puede ver (por su uid).
-// Son compatibles con la v1.14: se pueden publicar antes de actualizar el acceso.
+// - El plan y los pagos solo los escribe el servicio de pagos (cuenta de servicio).
+// - Las colecciones generales de la v1 (accounts, transactions…) quedan en la base
+//   como respaldo, pero la app ya no las usa: sin regla, nadie las lee desde la app
+//   (se ven en Firebase Console).
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -14,22 +14,9 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Cuenta anterior: correo fijo de la v1
-    function isLegacyOwner() {
-      return signedIn() && request.auth.token.email == 'owner@financial-jeixsoft.app';
-    }
-
-    // El dueño por su uid (sirve también después de cambiar su correo)
-    function isOwnerUid() {
-      return signedIn()
-        && exists(/databases/$(database)/documents/meta/security)
-        && get(/databases/$(database)/documents/meta/security).data.uid == request.auth.uid;
-    }
-
-    // Público solo para saber si la cuenta anterior ya tiene PIN
+    // uid del dueño (tiene el plan Completo siempre). Solo lectura
     match /meta/security {
-      allow read: if true;
-      allow write: if isLegacyOwner();
+      allow read: if signedIn();
     }
 
     // Campos que solo escribe el servicio de pagos (con su cuenta de servicio,
@@ -51,13 +38,6 @@ service cloud.firestore {
     // users/{uid}/{document=**} también abarcaría el perfil y dejaría tocar el plan)
     match /users/{uid}/{col}/{document=**} {
       allow read, write: if signedIn() && request.auth.uid == uid;
-    }
-
-    // Datos de la v1 (colecciones generales): solo el dueño
-    match /{col}/{docId} {
-      allow read, write: if col in ['accounts', 'transactions', 'categories', 'paychecks',
-                                    'recurringExpenses', 'pendingTransactions', 'budgets', 'savingsGoals']
-        && (isLegacyOwner() || isOwnerUid());
     }
   }
 }
