@@ -5,10 +5,10 @@ cuando lo hecho se sube a GitHub; mientras no se suba, los cambios se anotan
 en la versión en curso. La versión vive en `package.json` y de ahí la toman
 la app web, la PWA y el APK de Android (se ve en el menú y en la pantalla del PIN).
 
-## 2.0 — en construcción · TuPlataAlDia
+## 2.0 — 2026-11-04 · TuPlataAlDia
 
-Versión nueva (rama `version_two`). Se queda en 2.0 hasta que se suba; los
-cambios de cada pedido se agregan aquí.
+Versión nueva (rama `version_two`). Primera subida de la v2; lo siguiente que se
+suba será la 2.1.
 
 ### Diseño y base
 - Design system como tema de Tailwind 4 (`src/styles/theme.css`): colores
