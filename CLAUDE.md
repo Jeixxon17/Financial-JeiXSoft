@@ -15,10 +15,12 @@ Contexto del proyecto para trabajar en él. Todo en español: la app, los textos
   - Firestore, por usuario: `users/{uid}` (perfil: nombre, PIN cifrado, `migrated`) y `users/{uid}/accounts|transactions|categories|paychecks|recurringExpenses|pendingTransactions|budgets|savingsGoals`. Los servicios usan `userCollection()`/`userDoc()` de `firebase/dataRoot.ts`, nunca `collection(db, …)` directo.
   - Las colecciones generales (`accounts`, `transactions`… y `meta/security`) son los datos de la v1 del dueño: los sigue usando su cuenta anterior hasta que actualice su acceso, y después quedan de respaldo (no se borran).
   - Auth (`services/auth.service.ts`): correo y contraseña o Google (Google solo en el navegador; en Android falta el plugin nativo). Sesión persistente (`browserLocalPersistence`). El PIN de 6 dígitos es el **bloqueo** de la app, no la contraseña: se guarda cifrado con PBKDF2 en `users/{uid}.pin`, se pide al abrir y tras 5 min en segundo plano. "Olvidé mi PIN" cierra sesión y al volver a entrar se crea otro.
-  - Cuenta anterior del dueño (v1): `owner@financial-jeixsoft.app` con contraseña `jx-pin-<pin>`; entra desde "Entrar con mi PIN (cuenta anterior)" y usa las colecciones generales. En Perfil > "Actualiza tu acceso" (`UpgradeAccessSheet` + `services/migration.service.ts`) copia sus datos a `users/{uid}` con los mismos ids, guarda el PIN como bloqueo y vincula Google y/o correo con contraseña (el mismo uid: no cambia de dueño). Desde ese momento la v1.14 del celular deja de servir.
+  - Cuenta anterior del dueño (v1): **ya migrada (2026-11-05)**; el botón "Entrar con mi PIN (cuenta anterior)" se quitó en la 2.1 y el dueño entra con su correo o Google. Antes entraba con `owner@financial-jeixsoft.app` y una contraseña derivada del PIN, usando las colecciones generales (quedan de respaldo). En Perfil > "Actualiza tu acceso" (`UpgradeAccessSheet` + `services/migration.service.ts`) copia sus datos a `users/{uid}` con los mismos ids, guarda el PIN como bloqueo y vincula Google y/o correo con contraseña (el mismo uid: no cambia de dueño). Desde ese momento la v1.14 del celular deja de servir.
   - `firestore.rules`: cada usuario solo lo suyo; las colecciones generales solo el dueño (por su correo anterior o por el uid de `meta/security`). Compatibles con la v1.14. Se publican a mano en Firebase Console > Firestore > Reglas.
   - Usuarios nuevos arrancan con categorías por defecto (`services/onboarding.service.ts`).
   - **Plan**: Gratis (Inicio, Movimientos, Cuentas, registrar, Quincenas, Categorías, Perfil) o Completo, pago único de $ 50.000 (no mensualidad) que desbloquea Por confirmar, Presupuesto, asesor, Gastos automáticos, extractos/cuadrar y Estadísticas. Todo en `services/plan.service.ts` (`hasFullPlan`, `requirePlan`, `openUpgrade`); rutas con `meta.pro` se ven con `PlanLockedPage`; enlaces con `pro: true` llevan candado. El dueño siempre tiene Completo.
+  - **Legal** (`src/legal/`): términos, política de datos y eliminar cuenta (`documents.ts`, borrador para revisar con abogado; al cambiar un texto se cambia su versión en `legal.ts` y la app pide aceptarlo de nuevo). Autorizaciones en `users/{uid}.consents` (`services/consent.service.ts`: `hasConsent`, `saveConsents`, `useConsent` + `ConsentSheet` antes de extractos, lector y SMS). Eliminar cuenta en `services/accountDeletion.service.ts`. Datos del responsable en `VITE_LEGAL_*` (no en el código). El lector nativo solo guarda/sube con sesión entregada (requiere plan Completo y autorización).
+  - **Landing**: la app es para Android (Google Play). En el navegador, sin sesión, `App.vue` muestra `pages/LandingPage.vue` (piezas en `components/landing/`); "Iniciar sesión" abre `AuthScreen` (versión web). En Capacitor no se muestra. Enlace de la tienda en `VITE_PLAY_STORE_URL` (vacío = "Muy pronto").
   - El pago es con Wompi a través de `payments-worker/` (Cloudflare Workers gratis, no Firebase): firma el enlace y, con el evento aprobado, escribe `users/{uid}.plan = 'completo'` y `planInfo` con una cuenta de servicio. Las reglas no dejan que el usuario escriba esos campos. La app los escucha con `onSnapshot`. Variables: `VITE_PAYMENTS_URL`, `VITE_WOMPI_ENV`. Los secretos solo en Cloudflare (`wrangler secret put`), nunca en el repo.
   - El lector de Android sube a `users/{uid}/pendingTransactions` (la ruta llega en `setSession` como `collectionPath`; sin ella usa la general de la v1). Requiere APK nuevo.
 - PWA con `vite-plugin-pwa` (`injectRegister: null`). El service worker se registra solo en el navegador; dentro de Capacitor se desregistra.
@@ -33,14 +35,14 @@ Contexto del proyecto para trabajar en él. Todo en español: la app, los textos
 - APK:
   1. `npm run build`
   2. `npx cap sync android`
-  3. En `android/`: `JAVA_HOME="/c/Program Files/Android/Android Studio/jbr" JAVA_TOOL_OPTIONS="-Djdk.net.unixdomain.tmpdir=$(pwd)/.tmp" ./gradlew assembleDebug -q`. Gradle debe correr **fuera del sandbox** o falla con "Unable to establish loopback connection".
+  3. En `android/`: `ANDROID_USER_HOME="/c/Users/Jeison Martintez/.android" JAVA_HOME="/c/Program Files/Android/Android Studio/jbr" JAVA_TOOL_OPTIONS="-Djdk.net.unixdomain.tmpdir=$(pwd)/.tmp" ./gradlew assembleDebug -q`. Gradle debe correr **fuera del sandbox** o falla con "Unable to establish loopback connection".
   4. `"$LOCALAPPDATA/Android/Sdk/platform-tools/adb.exe" install -r app/build/outputs/apk/debug/app-debug.apk`. El celular de pruebas es un TECNO KL7 con Android 14.
 - Los permisos de seguridad del celular (acceso a notificaciones, batería sin límite, SMS) los da el usuario; no se tocan por él.
 
 ## Reglas de trabajo
 
 - **Versión**: la versión menor sube con `npm run version:bump` solo cuando lo hecho se sube a GitHub. Mientras no se suba, cada pedido agrega sus notas a la entrada de la versión en curso en `CHANGELOG.md` (la v2 está en 2.0 hasta su primer push). La versión sale de `package.json` hacia la web (`__APP_VERSION__`), la PWA y el APK (`versionName`/`versionCode` en `android/app/build.gradle`). Tras cada versión se compila e instala el APK si el celular está conectado.
-- **Commit y push solo cuando Jeison lo pide** ("commit y push"). Nunca incluir `node_modules` (aunque está trackeado en git), `dist` ni compilados: agregar los archivos con `git add` uno por uno.
+- **Commit y push solo cuando Jeison lo pide** ("commit y push"). Nunca incluir `node_modules`, `dist` ni compilados: agregar los archivos con `git add` uno por uno.
 - Nunca poner en el código ni en commits datos personales: contraseñas de PDF, número de documento, montos reales en comentarios. Los comentarios de los parsers usan montos de ejemplo.
 - Los extractos los sube el usuario en la app; no copiar sus PDFs a carpetas servidas ni escribir su contraseña en formularios.
 - Montos en pesos sin decimales y con punto de miles (`$ 1.578.005`).
@@ -158,11 +160,9 @@ CHANGELOG.md, firestore.rules, capacitor.config.ts, vite.config.ts
    - **Migración** de los datos actuales del dueño a su usuario nuevo.
    - **Onboarding**: cada cuánto le pagan, cuentas iniciales, permisos de notificaciones y SMS.
    - **Quitar lo propio de Jeison** del código: nombre de la empresa de nómina, cuentas y categorías fijas, `debt-*` creadas por quincenas. (Ya se quitaron `mockData.ts` y el salario fijo de Quincenas.)
-   - **Marca**: ícono en la PWA (manifest), Capacitor (`appName`) y los íconos de Android con el logo nuevo. El título y el color de la pestaña ya dicen TuPlataAlDia.
    - **Pantallas del diseño que faltan**: Huella y el Inicio de primera vez con "Primeros pasos".
    - **Pagos**: crear la cuenta de Wompi y de Cloudflare, publicar `payments-worker/` y probar en Sandbox (`payments-worker/README.md`); publicar las reglas nuevas.
 3. Pendientes de la v1 que pasan a la v2:
    - Lector del extracto de Bancolombia (MasterCard Gold y ahorros), cuando haya un PDF de ejemplo.
    - `fxFeeRate` de la MasterCard Gold (falta el dato).
    - Limpiar los "Ajuste de cuenta" de MasterCard y el movimiento sin detalle de 226.624 en NU.
-   - Sacar `node_modules` del control de versiones (`git rm -r --cached node_modules`).

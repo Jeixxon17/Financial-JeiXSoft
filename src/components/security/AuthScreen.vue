@@ -3,10 +3,17 @@
   <div class="flex min-h-dvh bg-screen font-sans text-ink antialiased lg:bg-desk">
     <!-- ===== Escritorio: la marca a la izquierda ===== -->
     <section class="relative hidden flex-1 flex-col justify-center gap-10 overflow-hidden px-16 py-12 lg:flex">
-      <div class="flex items-center gap-3 text-[26px] font-extrabold tracking-[-0.5px]">
+      <component
+        :is="onHome ? 'button' : 'div'"
+        :type="onHome ? 'button' : undefined"
+        :title="onHome ? 'Volver al inicio' : undefined"
+        class="flex items-center gap-3 self-start text-[26px] font-extrabold tracking-[-0.5px] text-ink"
+        :class="onHome && 'cursor-pointer'"
+        @click="onHome?.()"
+      >
         <img :src="appIcon" alt="" width="44" height="44" class="size-11 rounded-tile" />
         <span>TuPlata<span class="text-accent-light">AlDia</span></span>
-      </div>
+      </component>
       <div class="relative h-[250px] max-w-[460px]">
         <div :class="[demoCard, 'absolute top-0 left-10 w-[340px] -rotate-6 opacity-80']"><BankCardFace :card="demoCards[0]" /></div>
         <div :class="[demoCard, 'absolute top-12 left-0 w-[340px] rotate-3']"><BankCardFace :card="demoCards[1]" /></div>
@@ -30,9 +37,12 @@
       <div class="mx-auto flex w-full max-w-[400px] flex-1 flex-col gap-5 lg:flex-none lg:rounded-sheet lg:border lg:border-line lg:bg-surface-100 lg:p-9 lg:shadow-float">
         <!-- ===== Bienvenida (celular) ===== -->
         <template v-if="view === 'welcome'">
-          <div class="flex items-center gap-2.5 text-xl font-extrabold tracking-[-0.4px]">
-            <img :src="appIcon" alt="" width="36" height="36" class="size-9 rounded-chip" />
-            <span>TuPlata<span class="text-accent-light">AlDia</span></span>
+          <div class="flex items-center gap-3">
+            <button v-if="onHome" type="button" :class="backBtn" aria-label="Volver al inicio" @click="onHome()"><ArrowLeft :stroke-width="1.75" aria-hidden="true" /></button>
+            <div class="flex items-center gap-2.5 text-xl font-extrabold tracking-[-0.4px]">
+              <img :src="appIcon" alt="" width="36" height="36" class="size-9 rounded-chip" />
+              <span>TuPlata<span class="text-accent-light">AlDia</span></span>
+            </div>
           </div>
           <div class="relative mx-auto mt-2 h-[230px] w-full max-w-[340px]">
             <div :class="[demoCard, 'absolute top-0 right-0 left-6 -rotate-6 opacity-80']"><BankCardFace :card="demoCards[0]" /></div>
@@ -73,15 +83,6 @@
             ¿No tienes cuenta?
             <button type="button" class="cursor-pointer font-semibold text-accent-light hover:text-ink" @click="go('register')">Créala gratis</button>
           </p>
-          <button
-            v-if="hasLegacy"
-            type="button"
-            class="mt-auto flex cursor-pointer items-center justify-center gap-2 rounded-tile border border-dashed border-line-strong px-4 py-3 text-[13px] font-medium text-ink-muted hover:text-ink [&_svg]:size-4"
-            @click="go('legacy')"
-          >
-            <KeyRound :stroke-width="1.75" aria-hidden="true" />
-            Entrar con mi PIN (cuenta anterior)
-          </button>
         </template>
 
         <!-- ===== Crear cuenta ===== -->
@@ -113,7 +114,12 @@
             </div>
             <label class="flex cursor-pointer items-start gap-3 text-[13px]/[19px] text-ink-muted">
               <input v-model="accepted" type="checkbox" class="mt-0.5 size-4 shrink-0 accent-primary" />
-              Acepto los términos y la política de datos. Solo guardamos lo que tú registras.
+              <span>
+                Acepto los
+                <button type="button" :class="docLink" @click.prevent="openDoc = 'terminos'">Términos y condiciones</button>
+                y autorizo el tratamiento de mis datos según la
+                <button type="button" :class="docLink" @click.prevent="openDoc = 'privacidad'">Política de datos</button>.
+              </span>
             </label>
             <p v-if="error" role="alert" class="m-0 text-sm text-danger">{{ error }}</p>
             <TpButton type="submit" block :disabled="busy || !canRegister">{{ busy ? 'Creando tu cuenta…' : 'Continuar' }}</TpButton>
@@ -146,27 +152,21 @@
           </form>
           <TpButton v-if="sent" variant="secondary" block @click="go('login')">Volver a iniciar sesión</TpButton>
         </template>
-
-        <!-- ===== Cuenta anterior: PIN ===== -->
-        <template v-else-if="view === 'legacy'">
-          <button type="button" :class="backBtn" aria-label="Volver" @click="go('login')"><ArrowLeft :stroke-width="1.75" aria-hidden="true" /></button>
-          <div class="flex flex-col gap-2 text-center">
-            <h1 :class="title">Cuenta anterior</h1>
-            <p :class="subtitle">{{ busy ? 'Verificando…' : 'Escribe tu PIN de 6 dígitos' }}</p>
-          </div>
-          <PinPad ref="pad" :length="PIN_LENGTH" :disabled="busy || lockedFor > 0" :error="lockedFor > 0 ? `Muchos intentos. Espera ${lockedFor} s` : error" @complete="doLegacy" />
-        </template>
       </div>
 
       <p class="mt-6 text-center text-xs text-ink-faint">TuPlataAlDia v{{ appVersion }} · Desarrollado por JeiXSoft</p>
+      <p class="mt-2 flex justify-center gap-4 text-xs">
+        <button type="button" :class="footLink" @click="openDoc = 'terminos'">Términos</button>
+        <button type="button" :class="footLink" @click="openDoc = 'privacidad'">Privacidad</button>
+      </p>
     </section>
   </div>
+  <LegalSheet v-if="openDoc" :doc-key="openDoc" @close="openDoc = null" />
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { ArrowLeft, Bell, Circle, CircleCheck, CreditCard, KeyRound, MailCheck, PiggyBank } from 'lucide-vue-next'
-import PinPad from './PinPad.vue'
+import { computed, ref } from 'vue'
+import { ArrowLeft, Bell, Circle, CircleCheck, CreditCard, MailCheck, PiggyBank } from 'lucide-vue-next'
 import PasswordField from './PasswordField.vue'
 import GoogleBlock from './GoogleBlock.vue'
 import TpButton from '@/components/tp/TpButton.vue'
@@ -176,18 +176,15 @@ import { bankById } from '@/components/tp/banks'
 import { fieldInput, fieldLabel } from '@/components/tp/format'
 import appIcon from '@/assets/brand/tuplata-app-icon.svg'
 import symbol from '@/assets/brand/tuplata-symbol-dark.svg'
-import {
-  PIN_LENGTH,
-  authErrorMessage,
-  isLegacyPinConfigured,
-  loginWithEmail,
-  loginWithGoogle,
-  loginWithLegacyPin,
-  registerWithEmail,
-  resetPassword
-} from '@/services/auth.service'
+import { authErrorMessage, loginWithEmail, loginWithGoogle, registerWithEmail, resetPassword } from '@/services/auth.service'
+import { saveConsents } from '@/services/consent.service'
+import LegalSheet from '@/components/legal/LegalSheet.vue'
+import type { LegalDocKey } from '@/legal/documents'
 
-type View = 'welcome' | 'login' | 'register' | 'recover' | 'legacy'
+type View = 'welcome' | 'login' | 'register' | 'recover'
+
+// En la web se llega desde la landing: el logo (escritorio) o la flecha (celular) vuelven a ella
+defineProps<{ onHome?: () => void }>()
 
 const appVersion = __APP_VERSION__
 const isDesktop = window.matchMedia('(min-width: 1024px)').matches
@@ -219,18 +216,15 @@ const accepted = ref(false)
 const busy = ref(false)
 const error = ref('')
 const sent = ref(false)
-const hasLegacy = ref(false)
+const openDoc = ref<LegalDocKey | null>(null)
+const docLink = 'cursor-pointer p-0 font-semibold text-accent-light hover:underline'
+const footLink = 'cursor-pointer p-1 text-ink-faint hover:text-ink'
 
 function go(next: View) {
   error.value = ''
   sent.value = false
   view.value = next
 }
-
-// Solo se ofrece la cuenta anterior si existe (la del dueño de la v1)
-onMounted(async () => {
-  hasLegacy.value = await isLegacyPinConfigured().catch(() => false)
-})
 
 async function run(action: () => Promise<void>) {
   busy.value = true
@@ -256,7 +250,12 @@ const passwordRules = computed(() => [
 const canRegister = computed(
   () => !!name.value.trim() && /\S+@\S+\.\S+/.test(email.value) && passwordRules.value.every(r => r.ok) && accepted.value
 )
-const doRegister = () => run(() => registerWithEmail(name.value, email.value, password.value))
+// La casilla de términos y datos queda guardada como autorización (con fecha y versión)
+const doRegister = () =>
+  run(async () => {
+    await registerWithEmail(name.value, email.value, password.value)
+    await saveConsents(['terms', 'privacy']).catch(() => {})
+  })
 
 // ---------- Recuperar ----------
 const doRecover = () =>
@@ -264,38 +263,4 @@ const doRecover = () =>
     await resetPassword(email.value)
     sent.value = true
   })
-
-// ---------- Cuenta anterior ----------
-const pad = ref<InstanceType<typeof PinPad> | null>(null)
-const failed = ref(0)
-const lockedFor = ref(0)
-let lockTimer: ReturnType<typeof setInterval> | null = null
-
-async function doLegacy(pin: string) {
-  busy.value = true
-  error.value = ''
-  try {
-    await loginWithLegacyPin(pin)
-  } catch (e) {
-    pad.value?.reset()
-    error.value = authErrorMessage(e) === 'Correo o contraseña incorrectos' ? 'PIN incorrecto' : authErrorMessage(e)
-    failed.value++
-    if (failed.value >= 5) {
-      lockedFor.value = 30
-      lockTimer = setInterval(() => {
-        lockedFor.value--
-        if (lockedFor.value <= 0 && lockTimer) {
-          clearInterval(lockTimer)
-          lockTimer = null
-          failed.value = 0
-          error.value = ''
-        }
-      }, 1000)
-    }
-  } finally {
-    busy.value = false
-  }
-}
-
-onBeforeUnmount(() => lockTimer && clearInterval(lockTimer))
 </script>

@@ -58,14 +58,19 @@
         <span class="text-xs text-ink-faint">{{ progress.copied }} de {{ progress.total }} registros</span>
       </div>
       <p v-if="error" role="alert" class="m-0 text-sm text-danger">{{ error }}</p>
+      <!-- Si la verificación encontró faltantes: qué colección y cuántos -->
+      <MigrationChecks v-if="checks.length" :checks="checks" />
     </template>
 
     <!-- 4. Nuevo acceso -->
     <template v-else-if="step === 'access'">
       <div class="flex gap-3 rounded-tile border border-line bg-surface-200 p-4 text-sm [&_svg]:size-5 [&_svg]:shrink-0 [&_svg]:text-success">
         <CircleCheck :stroke-width="1.75" aria-hidden="true" />
-        <span class="text-ink-muted">Se copiaron <strong class="text-ink">{{ copied }}</strong> registros y tu PIN quedó como bloqueo de la app.</span>
+        <span class="text-ink-muted">
+          Se copiaron y verificaron <strong class="text-ink">{{ copied }}</strong> registros, y tu PIN quedó como bloqueo de la app.
+        </span>
       </div>
+      <MigrationChecks :checks="checks" />
       <p class="m-0 text-sm text-ink-muted">Ahora elige cómo vas a entrar. Puedes usar los dos.</p>
 
       <TpButton v-if="googleAvailable" :variant="googleLinked ? 'secondary' : 'primary'" block :disabled="busy || googleLinked" @click="doLinkGoogle">
@@ -113,7 +118,8 @@ import PasswordField from './PasswordField.vue'
 import TpSheet from '@/components/tp/TpSheet.vue'
 import TpButton from '@/components/tp/TpButton.vue'
 import { fieldInput, fieldLabel } from '@/components/tp/format'
-import { migrateLegacyData, type MigrationProgress } from '@/services/migration.service'
+import MigrationChecks from './MigrationChecks.vue'
+import { migrateLegacyData, type MigrationCheck, type MigrationProgress } from '@/services/migration.service'
 import {
   PIN_LENGTH,
   authErrorMessage,
@@ -162,18 +168,25 @@ async function confirmPin(value: string) {
 const name = ref('')
 const progress = ref<MigrationProgress | null>(null)
 const copied = ref(0)
+const checks = ref<MigrationCheck[]>([])
 const progressPct = computed(() => (progress.value?.total ? (progress.value.copied / progress.value.total) * 100 : 0))
 
 async function copyData() {
   busy.value = true
   error.value = ''
   try {
-    copied.value = await migrateLegacyData(name.value, p => (progress.value = p))
+    checks.value = []
+    checks.value = await migrateLegacyData(name.value, p => (progress.value = p))
+    copied.value = checks.value.reduce((s, c) => s + c.copied, 0)
     // El mismo PIN de siempre queda como bloqueo
     await setLockPin(pin)
     step.value = 'access'
   } catch (e) {
-    error.value = authErrorMessage(e)
+    const failed = (e as { checks?: MigrationCheck[] }).checks
+    if (failed) {
+      checks.value = failed
+      error.value = 'No se copió todo. Tus datos siguen como estaban: vuelve a intentarlo.'
+    } else error.value = authErrorMessage(e)
   } finally {
     busy.value = false
   }

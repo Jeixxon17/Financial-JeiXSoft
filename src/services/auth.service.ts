@@ -2,7 +2,6 @@ import {
   EmailAuthProvider,
   GoogleAuthProvider,
   browserLocalPersistence,
-  browserSessionPersistence,
   createUserWithEmailAndPassword,
   linkWithPopup,
   onAuthStateChanged,
@@ -25,6 +24,7 @@ import { reactive } from 'vue'
 import { auth, db } from '@/firebase/config'
 import { setDataRoot } from '@/firebase/dataRoot'
 import { seedNewUser } from '@/services/onboarding.service'
+import type { Consents } from '@/legal/legal'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Acceso de TuPlataAlDia
@@ -56,6 +56,8 @@ export interface UserProfile {
   // Plan Completo: solo lo escribe el servicio de pagos (las reglas no dejan al usuario)
   plan?: 'completo'
   planInfo?: { paidAt: string; reference: string; amount: number; method?: string }
+  // Autorizaciones que dio el usuario (términos, privacidad, extractos, lector…) con versión y fecha
+  consents?: Consents
 }
 
 export const authState = reactive({
@@ -76,7 +78,9 @@ export const authState = reactive({
   resettingPin: false,
   // Plan del usuario: 'gratis' o 'completo' (pago único)
   plan: 'gratis' as 'gratis' | 'completo',
-  planInfo: null as UserProfile['planInfo'] | null
+  planInfo: null as UserProfile['planInfo'] | null,
+  // Autorizaciones guardadas en el perfil (se escuchan en vivo)
+  consents: {} as Consents
 })
 
 const RESET_PIN_FLAG = 'tp-reset-pin'
@@ -108,6 +112,7 @@ function watchProfile(user: User) {
       profile = { ...(profile || {}), ...(snap.data() as UserProfile) }
       if (profile.plan === 'completo') authState.plan = 'completo'
       authState.planInfo = profile.planInfo || null
+      authState.consents = profile.consents || {}
     },
     () => {}
   )
@@ -130,7 +135,7 @@ async function applyUser(user: User | null) {
   profile = null
   stopProfile?.()
   stopProfile = null
-  Object.assign(authState, { plan: 'gratis', planInfo: null })
+  Object.assign(authState, { plan: 'gratis', planInfo: null, consents: {} })
   Object.assign(authState, { signedIn: !!user, uid: user?.uid || '', email: user?.email || '', name: user?.displayName || '' })
   authState.resettingPin = !!user && sessionStorage.getItem(RESET_PIN_FLAG) === '1'
 
@@ -148,6 +153,7 @@ async function applyUser(user: User | null) {
     profile = null
   }
 
+  authState.consents = profile?.consents || {}
   const isOwnerAccount = user.email === OWNER_EMAIL
   authState.legacy = isOwnerAccount && !profile?.migrated
   authState.name = user.displayName || profile?.name || ''
@@ -294,18 +300,8 @@ export async function changePin(currentPin: string, newPin: string) {
 // ───────────────────────────── Cuenta anterior (v1) ─────────────────────────────
 
 // Firebase pide contraseñas de 6+ caracteres; el PIN se envuelve en una fija
+// (Ya no se puede entrar con el PIN desde la pantalla de acceso: la cuenta del dueño se migró.)
 const legacyPassword = (pin: string) => `jx-pin-${pin}`
-
-export async function isLegacyPinConfigured(): Promise<boolean> {
-  const snap = await getDoc(SETUP_DOC)
-  return snap.exists() && snap.data().configured === true
-}
-
-// Entrar con el PIN como antes. La sesión dura mientras la app esté abierta
-export async function loginWithLegacyPin(pin: string) {
-  await setPersistence(auth, browserSessionPersistence)
-  await signInWithEmailAndPassword(auth, OWNER_EMAIL, legacyPassword(pin))
-}
 
 // ─ Actualizar el acceso de la cuenta anterior (lo usa migration.service) ─
 

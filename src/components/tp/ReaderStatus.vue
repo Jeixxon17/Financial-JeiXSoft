@@ -25,27 +25,43 @@
     <p v-if="!status.permission" class="mt-1 mb-0 text-[13px]/[19px] text-ink-muted">
       En "Acceso a notificaciones" busca la app, actívala y vuelve.
     </p>
+    <p v-else-if="!authorized" class="mt-1 mb-0 text-[13px]/[19px] text-ink-muted">
+      Falta tu autorización para leer las notificaciones del banco. Sin ella no se sube nada.
+    </p>
     <p class="mt-1 mb-0 text-xs/[17px] text-ink-faint">
       <template v-if="allReady">Se guardan y se suben solas, aunque la app esté cerrada.</template>
       <template v-if="status.queued"> {{ status.queued }} esperando internet.</template>
       <template v-if="!allReady && !status.queued">Lo que llegue al celular aparece aquí, para confirmarlo desde cualquier lado.</template>
     </p>
   </div>
+  <!-- Autorización (divulgación destacada que pide Google Play) antes de leer notificaciones -->
+  <ConsentSheet v-if="asking" :kind="asking" @accept="accepted" @cancel="cancelled" />
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Check } from 'lucide-vue-next'
 import TpButton from './TpButton.vue'
+import ConsentSheet from '@/components/legal/ConsentSheet.vue'
 import { getNotificationStatus, openNotificationSettings, requestBatteryExemption } from '@/services/notificationListener'
+import { hasConsent, useConsent } from '@/services/consent.service'
 
 type Status = NonNullable<Awaited<ReturnType<typeof getNotificationStatus>>>
 
 const props = defineProps<{ status: Status; allReady: boolean }>()
 
+const { asking, withConsent, accepted, cancelled } = useConsent()
+const authorized = computed(() => hasConsent('notifications'))
+
 const steps = computed(() => [
-  { label: 'Acceso a notificaciones', ok: !!props.status.permission, button: 'Activar', action: openNotificationSettings },
+  // Primero la autorización en la app y después el permiso de Android
+  { label: 'Acceso a notificaciones', ok: !!props.status.permission, button: 'Activar', action: () => withConsent('notifications', openNotificationSettings) },
   { label: 'Sin límite de batería', ok: !!props.status.battery, button: 'Permitir', action: requestBatteryExemption },
-  { label: 'Subida automática', ok: !!props.status.session, button: '', action: null }
+  {
+    label: 'Subida automática',
+    ok: !!props.status.session && authorized.value,
+    button: 'Autorizar',
+    action: authorized.value ? null : () => withConsent('notifications', () => {})
+  }
 ])
 </script>

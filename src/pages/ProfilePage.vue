@@ -128,16 +128,71 @@
           Desarrollado por JeiXSoft
         </div>
       </section>
+
+      <!-- Privacidad y datos: documentos, autorizaciones y eliminar la cuenta -->
+      <section :class="[panel, 'lg:col-span-2']">
+        <span :class="panelLabel">Privacidad y datos</span>
+        <button v-for="d in legalDocs" :key="d.key" type="button" :class="row" @click="openDoc = d.key">
+          <component :is="d.icon" :stroke-width="1.75" aria-hidden="true" />
+          <span class="flex flex-1 flex-col"><strong class="font-medium">{{ d.label }}</strong><small :class="small">{{ d.hint }}</small></span>
+          <ChevronRight :stroke-width="1.75" aria-hidden="true" />
+        </button>
+        <div v-for="c in consentRows" :key="c.key" :class="infoRow">
+          <ShieldCheck :stroke-width="1.75" aria-hidden="true" />
+          <span class="flex min-w-0 flex-1 flex-col">
+            <strong class="font-medium">{{ c.label }}</strong>
+            <small :class="small">{{ c.state }}</small>
+          </span>
+          <TpButton v-if="c.revocable" size="sm" variant="secondary" :disabled="revoking === c.key" @click="toRevoke = c.key">Retirar</TpButton>
+        </div>
+        <button type="button" :class="dangerRow" @click="showDelete = true">
+          <UserX :stroke-width="1.75" aria-hidden="true" />
+          <span class="flex flex-1 flex-col"><strong class="font-medium">Eliminar mi cuenta</strong><small :class="small">Borra tu cuenta y todos tus datos</small></span>
+          <ChevronRight :stroke-width="1.75" aria-hidden="true" />
+        </button>
+      </section>
     </div>
   </TpLayout>
 
   <ChangePinModal v-if="showChangePin" @close="showChangePin = false" />
   <UpgradeAccessSheet v-if="showUpgrade" @close="showUpgrade = false" />
+  <LegalSheet v-if="openDoc" :doc-key="openDoc" @close="openDoc = null" />
+  <DeleteAccountSheet v-if="showDelete" @close="showDelete = false" />
+  <TpConfirm
+    v-if="toRevoke"
+    title="¿Retirar la autorización?"
+    :text="revokeText"
+    confirm-label="Sí, retirar"
+    busy-label="Retirando…"
+    :busy="!!revoking"
+    @confirm="revoke"
+    @cancel="toRevoke = null"
+  />
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { BadgeCheck, CalendarDays, Check, ChevronRight, KeyRound, LockKeyhole, LogOut, Minus, Repeat, ShieldCheck, Tags } from 'lucide-vue-next'
+import {
+  BadgeCheck,
+  CalendarDays,
+  Check,
+  ChevronRight,
+  FileText,
+  KeyRound,
+  LockKeyhole,
+  LogOut,
+  Minus,
+  Repeat,
+  ShieldCheck,
+  Tags,
+  UserX
+} from 'lucide-vue-next'
+import TpConfirm from '@/components/tp/TpConfirm.vue'
+import LegalSheet from '@/components/legal/LegalSheet.vue'
+import DeleteAccountSheet from '@/components/legal/DeleteAccountSheet.vue'
+import type { LegalDocKey } from '@/legal/documents'
+import { consentLabels, featureConsents, type ConsentKey } from '@/legal/legal'
+import { hasConsent, revokeConsent } from '@/services/consent.service'
 import { mediumDate, money } from '@/components/tp/format'
 import { PLAN_PRICE, hasFullPlan, openUpgrade } from '@/services/plan.service'
 import TpButton from '@/components/tp/TpButton.vue'
@@ -153,6 +208,50 @@ const store = useFinanceStore()
 const appVersion = __APP_VERSION__
 const showChangePin = ref(false)
 const showUpgrade = ref(false)
+
+// ---------- Privacidad y datos ----------
+const openDoc = ref<LegalDocKey | null>(null)
+const showDelete = ref(false)
+const toRevoke = ref<ConsentKey | null>(null)
+const revoking = ref<ConsentKey | null>(null)
+
+const legalDocs = [
+  { key: 'terminos' as const, label: 'Términos y condiciones', hint: 'Lo que aceptaste al usar la app', icon: FileText },
+  { key: 'privacidad' as const, label: 'Política de privacidad', hint: 'Qué datos guardamos y tus derechos', icon: FileText }
+]
+
+// Autorizaciones dadas: términos y privacidad no se retiran aquí (para eso, eliminar la cuenta)
+const consentRows = computed(() =>
+  (Object.keys(consentLabels) as ConsentKey[])
+    .filter(key => authState.consents[key])
+    .map(key => {
+      const record = authState.consents[key] as { acceptedAt: string; revokedAt?: string }
+      const active = hasConsent(key)
+      return {
+        key,
+        label: consentLabels[key],
+        state: record.revokedAt
+          ? `Retirada el ${mediumDate(new Date(record.revokedAt))}`
+          : `Autorizada el ${mediumDate(new Date(record.acceptedAt))}${active ? '' : ' (versión anterior)'}`,
+        revocable: active && key !== 'terms' && key !== 'privacy'
+      }
+    })
+)
+
+const revokeText = computed(() =>
+  toRevoke.value && toRevoke.value !== 'terms' && toRevoke.value !== 'privacy' ? featureConsents[toRevoke.value].revokeNote : ''
+)
+
+async function revoke() {
+  if (!toRevoke.value) return
+  revoking.value = toRevoke.value
+  try {
+    await revokeConsent(toRevoke.value)
+  } finally {
+    revoking.value = null
+    toRevoke.value = null
+  }
+}
 
 // Plan Gratis contra plan Completo
 const planCompare = [
@@ -178,6 +277,10 @@ const panelLabel = 'mb-1 text-sm font-medium text-ink-muted'
 const small = 'text-xs text-ink-faint'
 const row =
   'flex min-h-14 w-full cursor-pointer items-center gap-3 border-b border-line py-2 text-left text-[15px] text-ink no-underline last:border-b-0 hover:text-accent-light [&>svg]:size-5 [&>svg]:shrink-0 [&>svg]:text-ink-muted'
+
+// Variantes de la fila: sin enlace (autorizaciones) y en rojo (eliminar la cuenta)
+const infoRow = row.replace('cursor-pointer ', '').replace(' hover:text-accent-light', '')
+const dangerRow = row.replace('text-ink ', 'text-danger ').replace('hover:text-accent-light', 'hover:opacity-80').replace('[&>svg]:text-ink-muted', '[&>svg]:text-danger')
 
 const financeLinks = [
   { to: '/paychecks', label: 'Quincenas y salario', hint: 'Salario, deducciones y obligaciones', icon: CalendarDays },

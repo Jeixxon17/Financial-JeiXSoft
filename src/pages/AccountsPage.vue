@@ -67,7 +67,7 @@
     :account="detailAccount"
     @close="detailId = null"
     @pay="acc => { detailId = null; payCard = acc.id }"
-    @statement="acc => { detailId = null; statementAccount = acc }"
+    @statement="acc => { detailId = null; withConsent('statements', () => (statementAccount = acc)) }"
     @reconcile="acc => { detailId = null; reconcileAccount = acc }"
     @edit="acc => { detailId = null; form = { account: acc } }"
   />
@@ -75,6 +75,8 @@
   <TxForm v-if="payCard" :pay-card="payCard" @close="payCard = null" />
   <StatementImportModal v-if="statementAccount" :key="statementAccount.id" :account="statementAccount" @close="statementAccount = null" />
   <BankReconcileModal v-if="reconcileAccount" :key="'r' + reconcileAccount.id" :account="reconcileAccount" @close="reconcileAccount = null" />
+  <!-- Autorización para leer extractos (la primera vez) -->
+  <ConsentSheet v-if="asking" :kind="asking" @accept="accepted" @cancel="cancelled" />
 </template>
 
 <script setup lang="ts">
@@ -90,6 +92,8 @@ import AccountForm from '@/components/tp/AccountForm.vue'
 import TxForm from '@/components/tp/TxForm.vue'
 import StatementImportModal from '@/components/modals/StatementImportModal.vue'
 import BankReconcileModal from '@/components/modals/BankReconcileModal.vue'
+import ConsentSheet from '@/components/legal/ConsentSheet.vue'
+import { useConsent } from '@/services/consent.service'
 import { bankCardClass } from '@/components/tp/cards'
 import { useAccountCards } from '@/components/tp/useAccountCards'
 import { money } from '@/components/tp/format'
@@ -134,6 +138,7 @@ const detailAccount = computed(() => store.accounts.find(a => a.id === detailId.
 const form = ref<{ account: Account | null } | null>(null)
 const payCard = ref<string | null>(null)
 const statementAccount = ref<Account | null>(null)
+const { asking, withConsent, accepted, cancelled } = useConsent()
 const reconcileAccount = ref<Account | null>(null)
 
 onMounted(() => {

@@ -93,6 +93,13 @@ public class BankNotificationsPlugin extends Plugin {
         call.resolve();
     }
 
+    // Cerrar sesión, retirar la autorización o eliminar la cuenta: deja de leer y subir
+    @PluginMethod
+    public void clearSession(PluginCall call) {
+        PendingStore.get(getContext()).clearSession();
+        call.resolve();
+    }
+
     @PluginMethod
     public void flush(PluginCall call) {
         UploadWorker.uploadNow(getContext());

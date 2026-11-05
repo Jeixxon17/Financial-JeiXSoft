@@ -48,6 +48,12 @@
         Pagas en la página segura de Wompi (Bancolombia). TuPlataAlDia no ve ni guarda los datos de tu tarjeta o cuenta. Al
         aprobarse, todo se desbloquea solo.
       </p>
+      <!-- Ley 1480 art. 47: informar que el plan empieza a prestarse al pagar (no aplica retracto) -->
+      <p class="m-0 text-xs/[17px] text-ink-faint">
+        Al pagar aceptas que el plan se active de inmediato; por eso, una vez activado, no aplica el derecho de retracto. Si no
+        se activa o hay un cobro de más, te devolvemos el dinero. Ver
+        <button type="button" class="cursor-pointer p-0 font-semibold text-accent-light hover:underline" @click="showTerms = true">Términos y condiciones</button>.
+      </p>
       <p v-if="error" role="alert" class="m-0 text-sm text-danger">{{ error }}</p>
     </template>
 
@@ -64,6 +70,7 @@
       </template>
     </template>
   </TpSheet>
+  <LegalSheet v-if="showTerms" doc-key="terminos" @close="showTerms = false" />
 </template>
 
 <script setup lang="ts">
@@ -72,6 +79,7 @@ import { ChartPie, FileText, Inbox, ChartNoAxesColumn, Repeat, ShieldCheck } fro
 import TpSheet from './TpSheet.vue'
 import TpButton from './TpButton.vue'
 import PlanPrice from './PlanPrice.vue'
+import LegalSheet from '@/components/legal/LegalSheet.vue'
 import { fieldLabel, money } from './format'
 import { bankById } from './banks'
 import { PLAN_PRICE, planBenefits, planUi, startCheckout } from '@/services/plan.service'
@@ -89,6 +97,7 @@ const benefitIcon: Record<string, Component> = {
 const step = ref<'offer' | 'pay'>('offer')
 const busy = ref(false)
 const error = ref('')
+const showTerms = ref(false)
 
 const summary = [
   { label: 'Plan Completo', value: money(PLAN_PRICE) },

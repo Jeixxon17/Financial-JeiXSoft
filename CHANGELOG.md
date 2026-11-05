@@ -5,6 +5,66 @@ cuando lo hecho se sube a GitHub; mientras no se suba, los cambios se anotan
 en la versión en curso. La versión vive en `package.json` y de ahí la toman
 la app web, la PWA y el APK de Android (se ve en el menú y en la pantalla del PIN).
 
+## 2.1 — 2026-11-05 · TuPlataAlDia
+
+### Legal y privacidad
+- Términos y condiciones y Política de tratamiento de datos (Ley 1581 de 2012,
+  Decreto 1074 de 2015, Ley 1480 de 2011) en `src/legal/documents.ts`. Son
+  páginas públicas (`#/terminos`, `#/privacidad`) y se abren en hojas dentro
+  de la app. Los datos del responsable salen del `.env` (`VITE_LEGAL_*`).
+- Página pública `#/eliminar-cuenta` (enlace web que pide Google Play).
+- Autorizaciones guardadas en `users/{uid}.consents` con versión, fecha y
+  plataforma (prueba de la autorización). Al crear la cuenta se guardan
+  términos y privacidad; quien no los tenga (cuentas con Google, usuarios de
+  antes o texto nuevo) ve una pantalla para aceptarlos antes de usar la app.
+- Antes de leer extractos, activar el lector de notificaciones o buscar SMS
+  se pide una autorización aparte (`ConsentSheet`), como pide Google Play.
+- Perfil > Privacidad y datos: ver los documentos, ver y retirar
+  autorizaciones y **eliminar la cuenta** (borra `users/{uid}` completo y el
+  usuario; confirma con contraseña o Google). Reglas: el usuario puede borrar
+  su perfil (hay que publicar `firestore.rules`).
+- Lector de Android: sin sesión o sin autorización ya no guarda ni sube
+  notificaciones. Al cerrar sesión, retirar la autorización o eliminar la
+  cuenta se borra la sesión del lector y su cola (`clearSession`). Antes, al
+  cerrar sesión, el lector seguía subiendo a la cuenta anterior.
+- La hoja de pago avisa que el plan se activa al pagar (no aplica retracto,
+  art. 47 Ley 1480) y enlaza los términos.
+
+### Acceso
+- Se quitó "Entrar con mi PIN (cuenta anterior)": la cuenta del dueño ya se
+  migró y entra con su correo o Google.
+
+### Landing para descargar la app
+- La app es para Android (Google Play). En el navegador, sin sesión, se abre
+  una landing (`pages/LandingPage.vue`) con el design system: portada con
+  celulares de muestra, por qué usarla, funciones, cómo se ve la app, planes
+  (Gratis y Completo de pago único) y la sección para descargar.
+- Los celulares de muestra (`components/landing/LandingPhone.vue`) dibujan
+  pantallas de la app con datos de ejemplo: Inicio, Movimientos, Por
+  confirmar, Presupuesto y Quincenas.
+- Botón de Google Play (`StoreButton`) con el enlace de `VITE_PLAY_STORE_URL`;
+  sin enlace dice "Muy pronto en Google Play". No usa el logo de Google Play.
+- "Iniciar sesión" y "Entrar en la web" abren el acceso (versión web); desde
+  ahí el logo (escritorio) o la flecha (celular) vuelven a la landing. Al
+  cerrar sesión en la web se vuelve a la landing. En la app Android no cambia
+  nada.
+- Animación `animate-float` en el tema para los celulares.
+
+### Marca
+- La app se llama TuPlataAlDia en Android (`strings.xml`, `capacitor.config.ts`)
+  y en la PWA (manifest de `vite.config.ts`). El paquete sigue siendo
+  `com.jeixsoft.finance` para que la app instalada se actualice sin desinstalar.
+- Íconos nuevos con el logo de TuPlataAlDia: favicon, ícono de Apple, PWA
+  (192, 512 y maskable) y Android (ícono adaptable con fondo y frente, redondo
+  y normal en todas las densidades). Pantalla de arranque con fondo noche y el
+  ícono. Colores de fondo y tema `#05070f`.
+
+### Migración de la cuenta anterior
+- "Actualiza tu acceso" ahora verifica la copia: vuelve a leer lo copiado y
+  revisa que cada registro de la v1 esté en `users/{uid}`. Solo entonces marca
+  el perfil como migrado; si falta algo, avisa, no cambia nada y se puede
+  repetir sin duplicar. Muestra cuántos registros quedaron por colección.
+
 ## 2.0 — 2026-11-04 · TuPlataAlDia
 
 Versión nueva (rama `version_two`). Primera subida de la v2; lo siguiente que se

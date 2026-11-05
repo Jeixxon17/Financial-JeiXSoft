@@ -2,10 +2,10 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.jeixsoft.finance',
-  appName: 'JeiXSoft',
+  appName: 'TuPlataAlDia',
   webDir: 'dist',
   android: {
-    backgroundColor: '#0a0d14'
+    backgroundColor: '#05070f'
   }
 };
 

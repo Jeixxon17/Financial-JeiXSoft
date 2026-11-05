@@ -17,7 +17,7 @@
         {{ allReady ? 'Lector activo' : 'Falta configurar' }}
       </span>
       <div v-if="canReadNotifications" class="hidden lg:block">
-        <TpButton variant="secondary" @click="showSms = true">
+        <TpButton variant="secondary" @click="openSms">
           <MessageSquareText :stroke-width="1.75" aria-hidden="true" />
           Buscar SMS del banco
         </TpButton>
@@ -126,7 +126,7 @@
               <span class="block text-sm font-semibold">¿Faltó algún movimiento?</span>
               <span class="mt-0.5 block text-[13px]/[19px] text-ink-muted">Busca los SMS del banco de ciertos días y recupéralos.</span>
             </div>
-            <TpButton variant="secondary" size="sm" class="self-start" @click="showSms = true">Buscar SMS del banco</TpButton>
+            <TpButton variant="secondary" size="sm" class="self-start" @click="openSms">Buscar SMS del banco</TpButton>
           </div>
         </div>
 
@@ -155,6 +155,8 @@
   </TpLayout>
 
   <SmsImportModal v-if="showSms" @close="showSms = false" @sent="(n: number) => (smsSent = n)" />
+  <!-- Autorización para buscar SMS (la primera vez) -->
+  <ConsentSheet v-if="asking" :kind="asking" @accept="accepted" @cancel="cancelled" />
 
   <TxForm
     v-if="selected"
@@ -193,6 +195,8 @@ import TpSkeleton from '@/components/tp/TpSkeleton.vue'
 import TxForm from '@/components/tp/TxForm.vue'
 import ReaderStatus from '@/components/tp/ReaderStatus.vue'
 import SmsImportModal from '@/components/modals/SmsImportModal.vue'
+import ConsentSheet from '@/components/legal/ConsentSheet.vue'
+import { useConsent } from '@/services/consent.service'
 import { plain } from '@/components/tp/format'
 import { useFinanceStore } from '@/stores/finance'
 import { toISODate } from '@/utils/dates'
@@ -206,6 +210,8 @@ const store = useFinanceStore()
 const ready = computed(() => store.loaded.pending && store.loaded.accounts)
 const selected = ref<PendingItem | null>(null)
 const showSms = ref(false)
+const { asking, withConsent, accepted, cancelled } = useConsent()
+const openSms = () => withConsent('sms', () => (showSms.value = true))
 const smsSent = ref(0)
 const toDiscard = ref<PendingItem | null>(null)
 const discarding = ref(false)

@@ -17,6 +17,10 @@ const routes: RouteRecordRaw[] = [
   { path: '/profile', name: 'Profile', component: () => import('@/pages/ProfilePage.vue'), meta: { title: 'Perfil y ajustes' } },
   // Aquí vuelve Wompi después de pagar el plan Completo
   { path: '/plan', name: 'Plan', component: () => import('@/pages/PlanResultPage.vue'), meta: { title: 'Plan Completo' } },
+  // Documentos legales: públicos, se ven con o sin sesión (App.vue los muestra antes del acceso)
+  { path: '/terminos', name: 'Terms', component: () => import('@/pages/LegalPage.vue'), meta: { title: 'Términos y condiciones', legal: 'terminos' } },
+  { path: '/privacidad', name: 'Privacy', component: () => import('@/pages/LegalPage.vue'), meta: { title: 'Política de privacidad', legal: 'privacidad' } },
+  { path: '/eliminar-cuenta', name: 'DeleteAccount', component: () => import('@/pages/LegalPage.vue'), meta: { title: 'Eliminar mi cuenta', legal: 'eliminar-cuenta' } },
   // Cualquier dirección vieja o mal escrita vuelve al Inicio
   { path: '/:pathMatch(.*)*', redirect: '/dashboard' }
 ]

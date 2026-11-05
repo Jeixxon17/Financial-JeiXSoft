@@ -39,10 +39,12 @@ service cloud.firestore {
         .affectedKeys().hasAny(['plan', 'planInfo']);
     }
 
-    // Perfil de cada usuario (nombre, PIN de bloqueo cifrado, plan)
+    // Perfil de cada usuario (nombre, PIN de bloqueo cifrado, autorizaciones, plan).
+    // Lo puede borrar él mismo al eliminar su cuenta (los pagos en payments/ se conservan)
     match /users/{uid} {
       allow read: if signedIn() && request.auth.uid == uid;
       allow create, update: if signedIn() && request.auth.uid == uid && !touchesPlan();
+      allow delete: if signedIn() && request.auth.uid == uid;
     }
 
     // Datos de cada usuario (solo subcolecciones: con la versión 2 de las reglas,

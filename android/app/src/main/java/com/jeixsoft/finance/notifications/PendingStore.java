@@ -114,6 +114,18 @@ public class PendingStore {
             .apply();
     }
 
+    // Al cerrar sesión, retirar la autorización o eliminar la cuenta: se olvida la sesión y lo
+    // que estaba en cola (no se sube nada más y no se guardan notificaciones nuevas)
+    public synchronized void clearSession() {
+        prefs.edit()
+            .remove(KEY_API_KEY)
+            .remove(KEY_PROJECT_ID)
+            .remove(KEY_REFRESH_TOKEN)
+            .remove(KEY_COLLECTION_PATH)
+            .putString(KEY_QUEUE, "[]")
+            .apply();
+    }
+
     // Dónde se suben las notificaciones (users/{uid}/pendingTransactions o la general)
     public String getCollectionPath() {
         return prefs.getString(KEY_COLLECTION_PATH, "pendingTransactions");

@@ -4,6 +4,7 @@ import { onIdTokenChanged } from 'firebase/auth'
 import { auth } from '@/firebase/config'
 import { watch } from 'vue'
 import { authState } from '@/services/auth.service'
+import { hasConsent } from '@/services/consent.service'
 import { userCollectionPath } from '@/firebase/dataRoot'
 import type { PendingTransaction } from '@/interfaces'
 
@@ -21,6 +22,7 @@ interface BankNotificationsPlugin {
   openPermissionSettings(): Promise<void>
   requestIgnoreBatteryOptimizations(): Promise<void>
   setSession(options: { apiKey: string; projectId: string; refreshToken: string; collectionPath: string }): Promise<void>
+  clearSession(): Promise<void>
   flush(): Promise<void>
   readBankSms(options: { from: number; to: number }): Promise<{ messages: PendingTransaction[] }>
 }
@@ -35,9 +37,14 @@ let watching = false
 // Cada vez que cambia el usuario o Firebase renueva la sesión, se le entrega al
 // lector nativo (con la colección de ese usuario) para subir sin abrir la app
 function pushSession() {
+  if (!authState.ready) return
   const user = auth.currentUser
-  // El lector es del plan Completo: con el plan Gratis no se le entrega la sesión
-  if (!user?.refreshToken || !authState.ready || authState.plan !== 'completo') return
+  // Solo con sesión, el plan Completo y la autorización del usuario. Si falta algo (cerró
+  // sesión, retiró la autorización, eliminó la cuenta) el lector olvida la sesión y la cola
+  if (!user?.refreshToken || authState.plan !== 'completo' || !hasConsent('notifications')) {
+    BankNotifications.clearSession().catch(() => {})
+    return
+  }
   BankNotifications.setSession({
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
     projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
@@ -50,7 +57,7 @@ export function watchNotificationSession() {
   if (!canReadNotifications || watching) return
   watching = true
   onIdTokenChanged(auth, () => pushSession())
-  watch(() => [authState.ready, authState.uid, authState.legacy, authState.plan], () => pushSession())
+  watch(() => [authState.ready, authState.uid, authState.legacy, authState.plan, authState.consents.notifications], () => pushSession())
 }
 export async function getNotificationStatus(): Promise<NotificationStatus | null> {
   if (!canReadNotifications) return null
