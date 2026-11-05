@@ -1,23 +1,43 @@
 rules_version = '2';
 
-// Solo el dueño (la cuenta que se crea al configurar el PIN) puede leer y
-// escribir. Copia de las reglas publicadas en Firebase Console > Firestore > Reglas.
+// TuPlataAlDia. Publicar en Firebase Console > Firestore > Reglas.
+//
+// - Cada usuario solo lee y escribe lo suyo: users/{uid} y users/{uid}/…
+// - El plan y los pagos solo los escribe el servicio de pagos (cuenta de servicio).
+// - Las colecciones generales de la v1 (accounts, transactions…) quedan en la base
+//   como respaldo, pero la app ya no las usa: sin regla, nadie las lee desde la app
+//   (se ven en Firebase Console).
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isOwner() {
-      return request.auth != null
-        && request.auth.token.email == 'owner@financial-jeixsoft.app';
+    function signedIn() {
+      return request.auth != null;
     }
 
-    // Público solo para saber si ya hay PIN (la pantalla inicial lo necesita)
+    // uid del dueño (tiene el plan Completo siempre). Solo lectura
     match /meta/security {
-      allow read: if true;
-      allow write: if isOwner();
+      allow read: if signedIn();
     }
 
-    match /{document=**} {
-      allow read, write: if isOwner();
+    // Campos que solo escribe el servicio de pagos (con su cuenta de servicio,
+    // que no pasa por estas reglas). El usuario no se puede dar el plan solo.
+    function touchesPlan() {
+      return request.resource.data.diff(resource == null ? {} : resource.data)
+        .affectedKeys().hasAny(['plan', 'planInfo']);
+    }
+
+    // Perfil de cada usuario (nombre, PIN de bloqueo cifrado, autorizaciones, plan).
+    // Lo puede borrar él mismo al eliminar su cuenta (los pagos en payments/ se conservan)
+    match /users/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create, update: if signedIn() && request.auth.uid == uid && !touchesPlan();
+      allow delete: if signedIn() && request.auth.uid == uid;
+    }
+
+    // Datos de cada usuario (solo subcolecciones: con la versión 2 de las reglas,
+    // users/{uid}/{document=**} también abarcaría el perfil y dejaría tocar el plan)
+    match /users/{uid}/{col}/{document=**} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
     }
   }
 }

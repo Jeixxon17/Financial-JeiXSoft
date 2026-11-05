@@ -21,6 +21,7 @@ public class PendingStore {
     private static final String KEY_API_KEY = "apiKey";
     private static final String KEY_PROJECT_ID = "projectId";
     private static final String KEY_REFRESH_TOKEN = "refreshToken";
+    private static final String KEY_COLLECTION_PATH = "collectionPath";
     private static final int MAX_UPLOADED_IDS = 500;
 
     private static PendingStore shared;
@@ -104,12 +105,30 @@ public class PendingStore {
 
     // --- Sesión ---
 
-    public synchronized void saveSession(String apiKey, String projectId, String refreshToken) {
+    public synchronized void saveSession(String apiKey, String projectId, String refreshToken, String collectionPath) {
         prefs.edit()
             .putString(KEY_API_KEY, apiKey)
             .putString(KEY_PROJECT_ID, projectId)
             .putString(KEY_REFRESH_TOKEN, refreshToken)
+            .putString(KEY_COLLECTION_PATH, collectionPath)
             .apply();
+    }
+
+    // Al cerrar sesión, retirar la autorización o eliminar la cuenta: se olvida la sesión y lo
+    // que estaba en cola (no se sube nada más y no se guardan notificaciones nuevas)
+    public synchronized void clearSession() {
+        prefs.edit()
+            .remove(KEY_API_KEY)
+            .remove(KEY_PROJECT_ID)
+            .remove(KEY_REFRESH_TOKEN)
+            .remove(KEY_COLLECTION_PATH)
+            .putString(KEY_QUEUE, "[]")
+            .apply();
+    }
+
+    // Dónde se suben las notificaciones (users/{uid}/pendingTransactions)
+    public String getCollectionPath() {
+        return prefs.getString(KEY_COLLECTION_PATH, null);
     }
 
     public synchronized void updateRefreshToken(String refreshToken) {
@@ -129,6 +148,6 @@ public class PendingStore {
     }
 
     public boolean hasSession() {
-        return getApiKey() != null && getProjectId() != null && getRefreshToken() != null;
+        return getApiKey() != null && getProjectId() != null && getRefreshToken() != null && getCollectionPath() != null;
     }
 }

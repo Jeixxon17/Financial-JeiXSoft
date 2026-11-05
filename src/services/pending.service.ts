@@ -6,7 +6,7 @@ import {
   setDoc
 } from 'firebase/firestore'
 
-import { db } from '@/firebase/config'
+import { userCollection, userDoc } from '@/firebase/dataRoot'
 
 import type { PendingTransaction } from '@/interfaces'
 
@@ -15,7 +15,7 @@ const COLLECTION = 'pendingTransactions'
 export const getPendingTransactionsService = async () => {
 
   const snapshot = await getDocs(
-    collection(db, COLLECTION)
+    userCollection(COLLECTION)
   )
 
   return snapshot.docs.map(docu => ({
@@ -29,7 +29,7 @@ export const deletePendingTransactionService = async (
 ) => {
 
   await deleteDoc(
-    doc(db, COLLECTION, id)
+    userDoc(COLLECTION, id)
   )
 }
 
@@ -41,7 +41,7 @@ export const savePendingTransactionService = async (
   const { id, ...data } = item
 
   await setDoc(
-    doc(db, COLLECTION, id),
+    userDoc(COLLECTION, id),
     data
   )
 }

@@ -7,14 +7,14 @@ import {
   updateDoc
 } from 'firebase/firestore'
 
-import { db } from '@/firebase/config'
+import { userCollection, userDoc } from '@/firebase/dataRoot'
 import type { Account } from '@/interfaces/index'
 
 const COLLECTION = 'accounts'
 
 export const getAccountsService = async () => {
   const snapshot = await getDocs(
-    collection(db, COLLECTION)
+    userCollection(COLLECTION)
   )
 
   return snapshot.docs.map(docu => ({
@@ -27,7 +27,7 @@ export const createAccountService = async (
   account: Omit<Account, 'id'>
 ) => {
   return await addDoc(
-    collection(db, COLLECTION),
+    userCollection(COLLECTION),
     {
       ...account,
       createdAt: new Date().toISOString()
@@ -39,7 +39,7 @@ export const updateAccountService = async (
   id: string,
   data: Partial<Account>
 ) => {
-  const ref = doc(db, COLLECTION, id)
+  const ref = userDoc(COLLECTION, id)
 
   await updateDoc(ref, data)
 }
@@ -47,7 +47,7 @@ export const updateAccountService = async (
 export const deleteAccountService = async (
   id: string
 ) => {
-  const ref = doc(db, COLLECTION, id)
+  const ref = userDoc(COLLECTION, id)
 
   await deleteDoc(ref)
 }

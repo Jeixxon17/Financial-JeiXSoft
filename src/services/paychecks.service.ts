@@ -9,7 +9,7 @@ import {
   query
 } from 'firebase/firestore'
 
-import { db } from '@/firebase/config'
+import { userCollection, userDoc } from '@/firebase/dataRoot'
 
 import type {
   Paycheck
@@ -28,7 +28,7 @@ const COLLECTION_NAME = 'paychecks'
 export async function getPaychecksService(): Promise<Paycheck[]> {
 
   const q = query(
-    collection(db, COLLECTION_NAME),
+    userCollection(COLLECTION_NAME),
     orderBy('createdAt', 'desc')
   )
 
@@ -52,7 +52,7 @@ export async function createPaycheckService(
 ) {
 
   await addDoc(
-    collection(db, COLLECTION_NAME),
+    userCollection(COLLECTION_NAME),
     {
       ...data,
       createdAt: Date.now()
@@ -69,11 +69,7 @@ export async function updatePaycheckService(
   updates: Partial<Paycheck>
 ) {
 
-  const ref = doc(
-    db,
-    COLLECTION_NAME,
-    id
-  )
+  const ref = userDoc(COLLECTION_NAME, id)
 
   await updateDoc(
     ref,
@@ -89,11 +85,7 @@ export async function deletePaycheckService(
   id: string
 ) {
 
-  const ref = doc(
-    db,
-    COLLECTION_NAME,
-    id
-  )
+  const ref = userDoc(COLLECTION_NAME, id)
 
   await deleteDoc(ref)
 }

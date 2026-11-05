@@ -7,7 +7,7 @@ import {
   updateDoc
 } from 'firebase/firestore'
 
-import { db } from '@/firebase/config'
+import { userCollection, userDoc } from '@/firebase/dataRoot'
 
 import type { Budget } from '@/interfaces'
 
@@ -16,7 +16,7 @@ const COLLECTION = 'budgets'
 export const getBudgetsService = async () => {
 
   const snapshot = await getDocs(
-    collection(db, COLLECTION)
+    userCollection(COLLECTION)
   )
 
   return snapshot.docs.map(docu => ({
@@ -30,7 +30,7 @@ export const createBudgetService = async (
 ) => {
 
   return await addDoc(
-    collection(db, COLLECTION),
+    userCollection(COLLECTION),
     recurring
   )
 }
@@ -40,7 +40,7 @@ export const updateBudgetService = async (
   data: Partial<Budget>
 ) => {
 
-  const ref = doc(db, COLLECTION, id)
+  const ref = userDoc(COLLECTION, id)
 
   await updateDoc(ref, data)
 }
@@ -49,7 +49,7 @@ export const deleteBudgetService = async (
   id: string
 ) => {
 
-  const ref = doc(db, COLLECTION, id)
+  const ref = userDoc(COLLECTION, id)
 
   await deleteDoc(ref)
 }

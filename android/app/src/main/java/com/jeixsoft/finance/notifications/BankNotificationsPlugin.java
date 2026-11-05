@@ -86,8 +86,21 @@ public class BankNotificationsPlugin extends Plugin {
             call.reject("Faltan datos de sesión");
             return;
         }
-        PendingStore.get(getContext()).saveSession(apiKey, projectId, refreshToken);
+        // Colección del usuario (users/{uid}/pendingTransactions)
+        String collectionPath = call.getString("collectionPath");
+        if (collectionPath == null) {
+            call.reject("Falta la colección del usuario");
+            return;
+        }
+        PendingStore.get(getContext()).saveSession(apiKey, projectId, refreshToken, collectionPath);
         UploadWorker.uploadNow(getContext());
+        call.resolve();
+    }
+
+    // Cerrar sesión, retirar la autorización o eliminar la cuenta: deja de leer y subir
+    @PluginMethod
+    public void clearSession(PluginCall call) {
+        PendingStore.get(getContext()).clearSession();
         call.resolve();
     }
 

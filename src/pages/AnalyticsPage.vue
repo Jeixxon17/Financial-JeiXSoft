@@ -1,518 +1,239 @@
 <template>
-  <AppLayout>
-    <div class="analytics-page">
-
-      <!-- Financial health indicators -->
-      <div class="indicators-row">
-        <div class="indicator-card">
-          <div class="ind-header">
-            <span class="ind-icon">❤️</span>
-            <span class="ind-label">Salud financiera</span>
-          </div>
-          <div class="ind-ring" :class="healthClass">
-            <svg viewBox="0 0 56 56">
-              <circle cx="28" cy="28" r="24" fill="none" stroke="var(--bg-elevated)" stroke-width="6"/>
-              <circle
-                cx="28" cy="28" r="24" fill="none"
-                :stroke="healthColor"
-                stroke-width="6"
-                stroke-linecap="round"
-                stroke-dasharray="150.8"
-                :stroke-dashoffset="150.8 - (150.8 * store.financialHealth / 100)"
-                transform="rotate(-90 28 28)"
-              />
-            </svg>
-            <span>{{ store.financialHealth }}%</span>
-          </div>
-          <p class="ind-desc">{{ healthText }}</p>
-        </div>
-
-        <div class="indicator-card">
-          <div class="ind-header">
-            <span class="ind-icon">💾</span>
-            <span class="ind-label">Tasa de ahorro</span>
-          </div>
-          <div class="ind-value" :class="store.savingsRate >= 20 ? 'text-green' : store.savingsRate >= 10 ? 'text-amber' : 'text-red'">
-            {{ store.savingsRate.toFixed(1) }}%
-          </div>
-          <div class="ind-bar">
-            <div class="ind-fill" :style="{ width: `${Math.min(store.savingsRate, 100)}%` }" :class="store.savingsRate >= 20 ? 'fill-green' : store.savingsRate >= 10 ? 'fill-amber' : 'fill-red'" />
-          </div>
-          <p class="ind-desc">Meta recomendada: 20%</p>
-        </div>
-
-        <div class="indicator-card">
-          <div class="ind-header">
-            <span class="ind-icon">📊</span>
-            <span class="ind-label">Nivel de deuda</span>
-          </div>
-          <div class="ind-value" :class="debtRatio > 50 ? 'text-red' : debtRatio > 30 ? 'text-amber' : 'text-green'">
-            {{ debtRatio.toFixed(1) }}%
-          </div>
-          <div class="ind-bar">
-            <div class="ind-fill" :style="{ width: `${Math.min(debtRatio, 100)}%` }" :class="debtRatio > 50 ? 'fill-red' : debtRatio > 30 ? 'fill-amber' : 'fill-green'" />
-          </div>
-          <p class="ind-desc">Deuda / Ingresos mensuales</p>
-        </div>
-
-        <div class="indicator-card">
-          <div class="ind-header">
-            <span class="ind-icon">💳</span>
-            <span class="ind-label">Uso de crédito</span>
-          </div>
-          <div class="ind-value" :class="creditUsage > 70 ? 'text-red' : creditUsage > 30 ? 'text-amber' : 'text-green'">
-            {{ creditUsage.toFixed(1) }}%
-          </div>
-          <div class="ind-bar">
-            <div class="ind-fill" :style="{ width: `${Math.min(creditUsage, 100)}%` }" :class="creditUsage > 70 ? 'fill-red' : creditUsage > 30 ? 'fill-amber' : 'fill-green'" />
-          </div>
-          <p class="ind-desc">Cupo utilizado / Cupo total</p>
-        </div>
+  <TpLayout>
+    <!-- ===== Encabezado ===== -->
+    <div class="flex flex-wrap items-center gap-3">
+      <div class="min-w-0 flex-[1_1_220px]">
+        <h1 :class="pageTitle">Estadísticas</h1>
+        <p class="mt-0.5 text-[13px]/[18px] text-ink-muted lg:text-sm">Cómo va tu plata este mes y los últimos meses.</p>
       </div>
+      <TpMonthPicker />
+    </div>
 
-      <!-- Charts row -->
-      <div class="charts-row">
-        <IncomeExpenseBar />
-        <ExpenseDonut title="Distribución de gastos" />
+    <!-- ===== Indicadores ===== -->
+    <div class="grid grid-cols-2 gap-2.5 lg:grid-cols-4 lg:gap-3">
+      <div class="col-span-2 flex items-center gap-4 rounded-card border border-line bg-surface-100 p-4 lg:col-span-1">
+        <div class="relative size-16 shrink-0">
+          <svg viewBox="0 0 56 56" class="size-16 -rotate-90" aria-hidden="true">
+            <circle cx="28" cy="28" r="24" fill="none" stroke="var(--color-surface-300)" stroke-width="6" />
+            <circle
+              cx="28" cy="28" r="24" fill="none" stroke-width="6" stroke-linecap="round" stroke-dasharray="150.8"
+              :stroke="health.color"
+              :stroke-dashoffset="150.8 - (150.8 * store.financialHealth) / 100"
+            />
+          </svg>
+          <span class="absolute inset-0 grid place-items-center text-sm font-bold tabular-nums">{{ store.financialHealth }}%</span>
+        </div>
+        <span class="flex flex-col gap-0.5">
+          <span class="text-xs text-ink-faint">Salud financiera</span>
+          <strong class="text-sm font-semibold">{{ health.text }}</strong>
+        </span>
       </div>
-
-      <!-- Top expenses + Projections -->
-      <div class="analytics-grid">
-        <!-- Top categories -->
-        <div class="analysis-card">
-          <h3 class="card-title">Top categorías de gasto</h3>
-          <div class="top-cats">
-            <div
-              v-for="(item, i) in topCategories"
-              :key="item.catId"
-              class="top-cat-row"
-            >
-              <span class="rank">#{{ i + 1 }}</span>
-              <span class="cat-pill" :style="{ background: item.color+'22', color: item.color }">
-                {{ item.icon }} {{ item.name }}
-              </span>
-              <div class="cat-bar-wrap">
-                <div class="cat-mini-bar">
-                  <div
-                    class="cat-mini-fill"
-                    :style="{ width: `${item.percent}%`, background: item.color }"
-                  />
-                </div>
-              </div>
-              <span class="cat-amount mono">{{ formatCompact(item.amount) }}</span>
-              <span class="cat-pct text-muted">{{ item.percent.toFixed(0) }}%</span>
-            </div>
-            <div class="empty-cats" v-if="!topCategories.length">
-              <span>📭</span>
-              <p>Sin gastos registrados</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Monthly summary -->
-        <div class="analysis-card">
-          <h3 class="card-title">Proyección mensual</h3>
-          <div class="projection-content">
-            <div class="proj-row">
-              <span class="proj-label">Ingresos actuales</span>
-              <span class="proj-value text-green mono">{{ formatCurrency(store.monthIncome) }}</span>
-            </div>
-            <div class="proj-row">
-              <span class="proj-label">Gastos actuales</span>
-              <span class="proj-value text-red mono">{{ formatCurrency(store.monthExpenses) }}</span>
-            </div>
-            <div class="proj-divider" />
-            <div class="proj-row highlight">
-              <span class="proj-label">Balance actual</span>
-              <span class="proj-value mono" :class="store.remaining >= 0 ? 'text-green' : 'text-red'">
-                {{ formatCurrency(store.remaining) }}
-              </span>
-            </div>
-            <div class="proj-row">
-              <span class="proj-label">Promedio gasto diario</span>
-              <span class="proj-value mono">{{ formatCurrency(dailyAvg) }}</span>
-            </div>
-            <div class="proj-row">
-              <span class="proj-label">Proyección a fin de mes</span>
-              <span class="proj-value mono text-amber">{{ formatCurrency(projectedExpenses) }}</span>
-            </div>
-            <div class="proj-row">
-              <span class="proj-label">Balance proyectado</span>
-              <span class="proj-value mono" :class="projectedBalance >= 0 ? 'text-green' : 'text-red'">
-                {{ formatCurrency(projectedBalance) }}
-              </span>
-            </div>
-          </div>
-
-          <!-- Recommendation -->
-          <div class="recommendation" :class="store.remaining >= 0 ? 'rec-good' : 'rec-bad'">
-            <span>{{ store.remaining >= 0 ? '💡' : '⚠️' }}</span>
-            <p>{{ recommendation }}</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Monthly trend table -->
-      <div class="trend-card">
-        <h3 class="card-title">Evolución mensual</h3>
-        <div class="trend-table">
-          <table>
-            <thead>
-              <tr>
-                <th>Mes</th>
-                <th>Ingresos</th>
-                <th>Gastos</th>
-                <th>Balance</th>
-                <th>Ahorro</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="month in store.monthlyTrend" :key="month.month">
-                <td class="month-cell">{{ monthShort(month.month) }}</td>
-                <td class="text-green mono-sm">{{ formatCurrency(month.income) }}</td>
-                <td class="text-red mono-sm">{{ formatCurrency(month.expenses) }}</td>
-                <td class="mono-sm" :class="month.income - month.expenses >= 0 ? 'text-green' : 'text-red'">
-                  {{ formatCurrency(month.income - month.expenses) }}
-                </td>
-                <td>
-                  <span class="savings-badge" :class="savingsClass(month)">
-                    {{ month.income > 0 ? (((month.income - month.expenses) / month.income) * 100).toFixed(0) : 0 }}%
-                  </span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+      <div v-for="ind in indicators" :key="ind.label" class="flex flex-col gap-1.5 rounded-card border border-line bg-surface-100 p-4">
+        <span class="text-xs text-ink-faint">{{ ind.label }}</span>
+        <strong class="text-[22px]/7 font-semibold tabular-nums" :class="ind.class">{{ ind.value.toFixed(0) }} %</strong>
+        <span class="h-1.5 overflow-hidden rounded-full bg-surface-300">
+          <span class="block h-full rounded-full" :class="ind.bar" :style="{ width: `${Math.min(ind.value, 100)}%` }" />
+        </span>
+        <span class="text-[11px]/[14px] text-ink-faint">{{ ind.hint }}</span>
       </div>
     </div>
-  </AppLayout>
+
+    <div class="grid grid-cols-[minmax(0,1fr)] items-start gap-[18px] lg:gap-6 min-[1100px]:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]">
+      <!-- ===== Ingresos y gastos por mes ===== -->
+      <section class="flex min-w-0 flex-col gap-4 rounded-card border border-line bg-surface-100 p-5">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <h2 :class="sectionTitle">Ingresos y gastos</h2>
+          <div class="flex gap-4 text-xs text-ink-muted" aria-hidden="true">
+            <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-[3px] bg-chart-income" />Ingresos</span>
+            <span class="flex items-center gap-1.5"><span class="size-2.5 rounded-[3px] bg-chart-expense" />Gastos</span>
+          </div>
+        </div>
+
+        <p v-if="!trend.length" class="m-0 text-sm text-ink-faint">Aún no hay meses con movimientos.</p>
+        <div v-else class="flex h-52 items-end gap-2 border-b border-line" role="img" :aria-label="chartLabel">
+          <div v-for="m in trend" :key="m.month" class="group relative flex h-full min-w-0 flex-1 flex-col justify-end">
+            <!-- Tooltip del mes -->
+            <div
+              class="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 hidden w-max -translate-x-1/2 rounded-tile border border-line bg-surface-200 px-3 py-2 text-xs shadow-float group-hover:block group-focus-within:block"
+            >
+              <strong class="mb-1 block text-ink">{{ m.label }}</strong>
+              <span class="flex items-center gap-1.5 text-ink-muted"><span class="size-2 rounded-[2px] bg-chart-income" />Ingresos <b class="ml-auto pl-3 font-semibold text-ink tabular-nums">{{ money(m.income) }}</b></span>
+              <span class="flex items-center gap-1.5 text-ink-muted"><span class="size-2 rounded-[2px] bg-chart-expense" />Gastos <b class="ml-auto pl-3 font-semibold text-ink tabular-nums">{{ money(m.expenses) }}</b></span>
+            </div>
+            <button type="button" class="flex h-full cursor-default items-end justify-center gap-0.5 rounded-t-tile px-1 hover:bg-surface-200/50 focus-visible:outline-2 focus-visible:outline-accent-light" :aria-label="`${m.label}: ingresos ${money(m.income)}, gastos ${money(m.expenses)}`">
+              <span class="w-full max-w-5 rounded-t-[4px] bg-chart-income" :style="{ height: `${pct(m.income)}%` }" />
+              <span class="w-full max-w-5 rounded-t-[4px] bg-chart-expense" :style="{ height: `${pct(m.expenses)}%` }" />
+            </button>
+          </div>
+        </div>
+        <div v-if="trend.length" class="-mt-2 flex gap-2" aria-hidden="true">
+          <span v-for="m in trend" :key="m.month" class="flex-1 truncate text-center text-[11px] text-ink-faint">{{ m.short }}</span>
+        </div>
+
+        <!-- Tabla (también es la vista accesible del gráfico) -->
+        <details class="group">
+          <summary class="cursor-pointer list-none text-[13px] font-medium text-accent-light">
+            <span class="group-open:hidden">Ver en tabla</span><span class="hidden group-open:inline">Ocultar tabla</span>
+          </summary>
+          <div class="mt-3 overflow-x-auto">
+            <table class="w-full min-w-[480px] border-collapse text-sm">
+              <thead>
+                <tr>
+                  <th v-for="h in ['Mes', 'Ingresos', 'Gastos', 'Balance', 'Ahorro']" :key="h" class="border-b border-line px-3 py-2 text-left text-[11px] font-semibold tracking-[0.5px] text-ink-faint uppercase">{{ h }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="m in trend" :key="m.month" class="[&:last-child>td]:border-b-0">
+                  <td class="border-b border-line px-3 py-2 text-ink-muted">{{ m.label }}</td>
+                  <td class="border-b border-line px-3 py-2 tabular-nums">{{ money(m.income) }}</td>
+                  <td class="border-b border-line px-3 py-2 tabular-nums">{{ money(m.expenses) }}</td>
+                  <td class="border-b border-line px-3 py-2 font-semibold tabular-nums" :class="m.income - m.expenses < 0 ? 'text-danger' : 'text-success'">{{ money(m.income - m.expenses) }}</td>
+                  <td class="border-b border-line px-3 py-2 tabular-nums text-ink-muted">{{ m.rate.toFixed(0) }} %</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </details>
+      </section>
+
+      <!-- ===== Gastos por categoría y proyección ===== -->
+      <div class="flex min-w-0 flex-col gap-[18px] lg:gap-6">
+        <section class="flex flex-col gap-3 rounded-card border border-line bg-surface-100 p-5">
+          <h2 :class="sectionTitle">Gastos de {{ monthName }}</h2>
+          <p v-if="!topCategories.length" class="m-0 text-sm text-ink-faint">Sin gastos registrados en este mes.</p>
+          <div v-for="item in topCategories" :key="item.catId" class="flex flex-col gap-1.5" :title="`${item.name}: ${money(item.amount)} (${item.percent.toFixed(0)} %)`">
+            <div class="flex items-baseline justify-between gap-3 text-sm">
+              <span class="truncate text-ink-muted">{{ item.name }}</span>
+              <span class="shrink-0 font-semibold tabular-nums">{{ money(item.amount) }} <small class="font-normal text-ink-faint">{{ item.percent.toFixed(0) }} %</small></span>
+            </div>
+            <span class="h-2 overflow-hidden rounded-full bg-surface-300">
+              <span class="block h-full rounded-full bg-chart-expense" :style="{ width: `${item.share}%` }" />
+            </span>
+          </div>
+        </section>
+
+        <section class="flex flex-col gap-1 rounded-card border border-line bg-surface-100 p-5">
+          <h2 :class="[sectionTitle, 'mb-2']">Proyección del mes</h2>
+          <div v-for="row in projection" :key="row.label" class="flex justify-between gap-3 border-b border-line py-2.5 text-sm text-ink-muted last:border-b-0">
+            <span>{{ row.label }}</span>
+            <strong class="font-semibold tabular-nums" :class="row.class">{{ row.value }}</strong>
+          </div>
+          <p class="mt-2 mb-0 flex gap-2.5 rounded-tile bg-surface-200/60 px-3 py-2.5 text-[13px]/[19px] text-ink-muted [&_svg]:mt-0.5 [&_svg]:size-4 [&_svg]:shrink-0" :class="store.remaining >= 0 ? '[&_svg]:text-success' : '[&_svg]:text-warning'">
+            <component :is="store.remaining >= 0 ? CircleCheck : CircleAlert" :stroke-width="1.75" aria-hidden="true" />
+            {{ recommendation }}
+          </p>
+        </section>
+      </div>
+    </div>
+  </TpLayout>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import AppLayout from '@/layouts/AppLayout.vue'
-import IncomeExpenseBar from '@/components/charts/IncomeExpenseBar.vue'
-import ExpenseDonut from '@/components/charts/ExpenseDonut.vue'
+import { CircleAlert, CircleCheck } from 'lucide-vue-next'
+import TpLayout from '@/layouts/TpLayout.vue'
+import TpMonthPicker from '@/components/tp/TpMonthPicker.vue'
+import { money } from '@/components/tp/format'
 import { useFinanceStore } from '@/stores/finance'
-import { formatCurrency, formatCompact } from '@/utils/formatters'
 
 const store = useFinanceStore()
 
-const healthClass = computed(() => {
-  const h = store.financialHealth
-  return h >= 70 ? 'ring-good' : h >= 40 ? 'ring-medium' : 'ring-bad'
+const pageTitle = 'm-0 font-sans text-xl/[26px] font-semibold lg:text-[26px]/8 lg:tracking-[-0.3px]'
+const sectionTitle = 'm-0 font-sans text-lg/6 font-semibold'
+
+const monthName = computed(() => {
+  const [y, m] = store.selectedMonth.split('-').map(Number)
+  return new Date(y, m - 1, 1).toLocaleDateString('es-CO', { month: 'long' })
 })
 
-const healthColor = computed(() => {
+// ---------- Indicadores ----------
+const health = computed(() => {
   const h = store.financialHealth
-  return h >= 70 ? 'var(--accent-green)' : h >= 40 ? 'var(--accent-amber)' : 'var(--accent-red)'
+  if (h >= 80) return { text: 'Excelentes hábitos financieros', color: 'var(--color-success)' }
+  if (h >= 60) return { text: 'Buen manejo del dinero', color: 'var(--color-success)' }
+  if (h >= 40) return { text: 'Hay cosas por mejorar', color: 'var(--color-warning)' }
+  return { text: 'Requiere atención', color: 'var(--color-danger)' }
 })
 
-const healthText = computed(() => {
-  const h = store.financialHealth
-  if (h >= 80) return 'Excelentes hábitos financieros'
-  if (h >= 60) return 'Buen manejo del dinero'
-  if (h >= 40) return 'Hay áreas por mejorar'
-  return 'Requiere atención urgente'
+// Uso de cupo con lo que de verdad gasta cupo (sin créditos aparte)
+const creditUsage = computed(() => {
+  const cards = store.accounts.filter(a => a.type === 'credit' && a.creditLimit)
+  const limit = cards.reduce((s, a) => s + (a.creditLimit || 0), 0)
+  const used = cards.reduce((s, a) => s + store.calculateAccountBalance(a.id).limitUsed, 0)
+  return limit > 0 ? (used / limit) * 100 : 0
 })
 
-const debtRatio = computed(() =>
-  store.monthIncome > 0 ? (store.totalDebt / store.monthIncome) * 100 : 0
+const debtRatio = computed(() => (store.monthIncome > 0 ? (store.totalDebt / store.monthIncome) * 100 : 0))
+
+const tone = (good: boolean, warn: boolean) => (good ? ['text-success', 'bg-success'] : warn ? ['text-warning', 'bg-warning'] : ['text-danger', 'bg-danger'])
+
+const indicators = computed(() => {
+  const s = tone(store.savingsRate >= 20, store.savingsRate >= 10)
+  const d = tone(debtRatio.value <= 30, debtRatio.value <= 50)
+  const c = tone(creditUsage.value <= 30, creditUsage.value <= 70)
+  return [
+    { label: 'Tasa de ahorro', value: Math.max(0, store.savingsRate), hint: 'Meta recomendada: 20 %', class: s[0], bar: s[1] },
+    { label: 'Nivel de deuda', value: debtRatio.value, hint: 'Deuda / ingresos del mes', class: d[0], bar: d[1] },
+    { label: 'Uso del cupo', value: creditUsage.value, hint: 'Cupo usado / cupo total', class: c[0], bar: c[1] }
+  ]
+})
+
+// ---------- Ingresos y gastos por mes ----------
+const trend = computed(() =>
+  store.monthlyTrend.map(m => {
+    const [y, mo] = m.month.split('-').map(Number)
+    const d = new Date(y, mo - 1, 1)
+    const label = d.toLocaleDateString('es-CO', { month: 'long', year: 'numeric' })
+    return {
+      ...m,
+      label: label.charAt(0).toUpperCase() + label.slice(1),
+      short: d.toLocaleDateString('es-CO', { month: 'short' }).replace('.', ''),
+      rate: m.income > 0 ? ((m.income - m.expenses) / m.income) * 100 : 0
+    }
+  })
 )
 
-const creditUsage = computed(() => {
-  const creditAccs = store.accounts.filter(a => a.type === 'credit')
-  const totalLimit = creditAccs.reduce((s, a) => s + (a.creditLimit || 0), 0)
-  const totalUsed = creditAccs.reduce((s, a) => s + (a.usedCredit || 0), 0)
-  return totalLimit > 0 ? (totalUsed / totalLimit) * 100 : 0
-})
+const maxValue = computed(() => Math.max(1, ...trend.value.flatMap(m => [m.income, m.expenses])))
+const pct = (v: number) => Math.max(v > 0 ? 1.5 : 0, (v / maxValue.value) * 100)
+const chartLabel = computed(() => `Ingresos y gastos de los últimos ${trend.value.length} meses. La tabla tiene los valores.`)
 
+// ---------- Gastos por categoría ----------
 const topCategories = computed(() => {
   const total = store.monthExpenses
-  return Object.entries(store.expensesByCategory)
-    .map(([catId, amount]) => {
-      const cat = store.getCategoryById(catId)
-      return {
-        catId, amount,
-        name: cat?.name || 'Otro',
-        icon: cat?.icon || '📦',
-        color: cat?.color || '#6b7280',
-        percent: total > 0 ? (amount / total) * 100 : 0
-      }
-    })
+  const list = Object.entries(store.expensesByCategory)
+    .map(([catId, amount]) => ({
+      catId,
+      amount,
+      name: store.getCategoryById(catId)?.name || 'Otro',
+      percent: total > 0 ? (amount / total) * 100 : 0
+    }))
     .sort((a, b) => b.amount - a.amount)
     .slice(0, 6)
+  const top = list[0]?.amount || 1
+  return list.map(c => ({ ...c, share: (c.amount / top) * 100 }))
 })
 
+// ---------- Proyección ----------
 const today = new Date()
 const dayOfMonth = today.getDate()
 const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()
-
-const dailyAvg = computed(() =>
-  dayOfMonth > 0 ? store.monthExpenses / dayOfMonth : 0
-)
-
+const dailyAvg = computed(() => (dayOfMonth > 0 ? store.monthExpenses / dayOfMonth : 0))
 const projectedExpenses = computed(() => dailyAvg.value * daysInMonth)
 const projectedBalance = computed(() => store.monthIncome - projectedExpenses.value)
 
+const projection = computed(() => [
+  { label: 'Ingresos del mes', value: money(store.monthIncome), class: 'text-success' },
+  { label: 'Gastos del mes', value: money(store.monthExpenses), class: '' },
+  { label: 'Balance', value: money(store.remaining), class: store.remaining >= 0 ? 'text-success' : 'text-danger' },
+  { label: 'Gasto promedio por día', value: money(dailyAvg.value), class: '' },
+  { label: 'Gastos al final del mes', value: money(projectedExpenses.value), class: 'text-warning' },
+  { label: 'Balance proyectado', value: money(projectedBalance.value), class: projectedBalance.value >= 0 ? 'text-success' : 'text-danger' }
+])
+
 const recommendation = computed(() => {
-  if (store.remaining >= 0 && store.savingsRate >= 20) return 'Excelente! Estás ahorrando más del 20% de tus ingresos.'
-  if (store.remaining >= 0 && store.savingsRate >= 10) return 'Bien encaminado. Intenta aumentar tu tasa de ahorro al 20%.'
-  if (store.remaining >= 0) return 'Estás en positivo pero el margen es bajo. Revisa tus gastos variables.'
-  return `Gastos superan ingresos por ${formatCurrency(Math.abs(store.remaining))}. Considera reducir gastos no esenciales.`
+  if (store.remaining >= 0 && store.savingsRate >= 20) return 'Vas muy bien: estás ahorrando más del 20 % de lo que te entra.'
+  if (store.remaining >= 0 && store.savingsRate >= 10) return 'Bien encaminado. Intenta llevar tu ahorro al 20 %.'
+  if (store.remaining >= 0) return 'Estás en positivo pero con poco margen. Revisa los gastos que puedes bajar.'
+  return `Los gastos superan los ingresos por ${money(Math.abs(store.remaining))}. Recorta gastos que no sean necesarios.`
 })
-
-function monthShort(month: string) {
-  const [y, m] = month.split('-')
-  return new Date(parseInt(y), parseInt(m) - 1).toLocaleDateString('es-CO', { month: 'short', year: '2-digit' })
-}
-
-function savingsClass(m: { income: number; expenses: number }) {
-  const rate = m.income > 0 ? ((m.income - m.expenses) / m.income) * 100 : 0
-  return rate >= 20 ? 'badge-green' : rate >= 10 ? 'badge-amber' : 'badge-red'
-}
 </script>
-
-<style scoped>
-.analytics-page { display: flex; flex-direction: column; gap: 20px; }
-
-/* Indicators */
-.indicators-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px;
-}
-
-.indicator-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 18px;
-}
-
-.ind-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.ind-icon { font-size: 18px; }
-.ind-label { font-size: 12px; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; }
-
-.ind-ring {
-  position: relative;
-  width: 56px; height: 56px;
-  margin-bottom: 10px;
-}
-
-.ind-ring svg { width: 100%; height: 100%; }
-
-.ind-ring span {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-
-.ind-value {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 26px;
-  font-weight: 700;
-  margin-bottom: 8px;
-}
-
-.ind-bar {
-  height: 6px;
-  background: var(--bg-elevated);
-  border-radius: 3px;
-  overflow: hidden;
-  margin-bottom: 8px;
-}
-
-.ind-fill { height: 100%; border-radius: 3px; transition: width 0.6s ease; }
-.fill-green { background: var(--accent-green); }
-.fill-amber { background: var(--accent-amber); }
-.fill-red { background: var(--accent-red); }
-
-.ind-desc { font-size: 11px; color: var(--text-muted); }
-
-/* Charts row */
-.charts-row {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 16px;
-}
-
-@media (min-width: 768px) {
-  .charts-row { grid-template-columns: 2fr 1fr; }
-}
-
-/* Analytics grid */
-.analytics-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: 16px;
-}
-
-@media (min-width: 768px) {
-  .analytics-grid { grid-template-columns: 1fr 1fr; }
-}
-
-.analysis-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 20px;
-}
-
-.card-title {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: 16px;
-}
-
-/* Top categories */
-.top-cats { display: flex; flex-direction: column; gap: 10px; }
-
-.top-cat-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-}
-
-.rank { color: var(--text-muted); width: 20px; text-align: center; font-weight: 600; }
-
-.cat-pill {
-  font-size: 11px;
-  font-weight: 500;
-  padding: 3px 8px;
-  border-radius: 6px;
-  white-space: nowrap;
-  min-width: 90px;
-}
-
-.cat-bar-wrap { flex: 1; }
-
-.cat-mini-bar {
-  height: 4px;
-  background: var(--bg-elevated);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.cat-mini-fill {
-  height: 100%;
-  border-radius: 2px;
-  transition: width 0.6s ease;
-}
-
-.cat-amount { font-size: 12px; color: var(--text-primary); font-weight: 600; white-space: nowrap; }
-.cat-pct { color: var(--text-muted); font-size: 11px; width: 30px; text-align: right; }
-
-.empty-cats {
-  display: flex; flex-direction: column; align-items: center;
-  gap: 8px; padding: 24px; color: var(--text-muted); font-size: 13px;
-}
-
-.empty-cats span { font-size: 28px; opacity: 0.4; }
-
-/* Projection */
-.projection-content { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
-
-.proj-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 6px 0;
-}
-
-.proj-row.highlight {
-  background: var(--bg-elevated);
-  padding: 8px 12px;
-  border-radius: 8px;
-}
-
-.proj-label { font-size: 12px; color: var(--text-secondary); }
-.proj-value { font-size: 13px; font-weight: 600; color: var(--text-primary); }
-
-.proj-divider {
-  height: 1px;
-  background: var(--border);
-  margin: 4px 0;
-}
-
-.recommendation {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-  padding: 12px 14px;
-  border-radius: 10px;
-  font-size: 12px;
-}
-
-.recommendation span { font-size: 16px; flex-shrink: 0; }
-.rec-good { background: var(--accent-green-dim); color: #00c47f; border: 1px solid rgba(0,214,143,0.15); }
-.rec-bad { background: var(--accent-red-dim); color: #ff6b7a; border: 1px solid rgba(255,71,87,0.15); }
-
-/* Trend table */
-.trend-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 20px;
-}
-
-.trend-table { overflow-x: auto; }
-
-table { width: 100%; border-collapse: collapse; }
-
-th {
-  padding: 10px 16px;
-  text-align: left;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  border-bottom: 1px solid var(--border);
-}
-
-td {
-  padding: 12px 16px;
-  color: var(--text-secondary);
-  font-size: 13px;
-  border-bottom: 1px solid rgba(35, 43, 62, 0.4);
-}
-
-tbody tr:hover { background: var(--bg-elevated); }
-tbody tr:last-child td { border-bottom: none; }
-
-.month-cell { color: var(--text-primary); font-weight: 500; text-transform: capitalize; }
-.mono-sm { font-family: 'JetBrains Mono', monospace; font-size: 12px; }
-
-.savings-badge {
-  padding: 2px 8px;
-  border-radius: 20px;
-  font-size: 11px;
-  font-weight: 600;
-  font-family: 'JetBrains Mono', monospace;
-}
-
-.badge-green { background: var(--accent-green-dim); color: var(--accent-green); }
-.badge-amber { background: var(--accent-amber-dim); color: var(--accent-amber); }
-.badge-red { background: var(--accent-red-dim); color: var(--accent-red); }
-
-.text-green { color: var(--accent-green); }
-.text-red { color: var(--accent-red); }
-.text-amber { color: var(--accent-amber); }
-.text-muted { color: var(--text-muted); }
-.mono { font-family: 'JetBrains Mono', monospace; }
-</style>

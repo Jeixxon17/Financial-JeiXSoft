@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" width="120" height="120">
+  <defs>
+    <radialGradient id="bgGlow" cx="0.75" cy="0.85" r="0.75">
+      <stop offset="0" stop-color="#2c4fd8"/>
+      <stop offset="1" stop-color="#2c4fd8" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="coin" x1="0.15" y1="0.1" x2="0.85" y2="0.95">
+      <stop offset="0" stop-color="#d6e1ff"/>
+      <stop offset="0.45" stop-color="#6d8cf5"/>
+      <stop offset="1" stop-color="#2f4bd0"/>
+    </linearGradient>
+  </defs>
+  <rect width="120" height="120" rx="28" fill="#0b1433"/>
+  <rect width="120" height="120" rx="28" fill="url(#bgGlow)"/>
+  <circle cx="55" cy="65" r="34" fill="url(#coin)"/>
+  <circle cx="55" cy="65" r="26.5" fill="none" stroke="#ffffff" stroke-opacity="0.32" stroke-width="2"/>
+  <path d="M39 66l12 12 38-41" fill="none" stroke="#0b1433" stroke-opacity="0.35" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M39 66l12 12 38-41" fill="none" stroke="#ffffff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M73 33h17v17" fill="none" stroke="#ffffff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

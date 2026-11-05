@@ -1,196 +1,217 @@
 <template>
-  <AppLayout>
-    <div class="recurring-page">
-      <div class="page-header">
-        <div>
-          <p class="header-subtitle">Membresías y cobros que se registran solos cada mes</p>
-        </div>
-        <button class="btn-add" @click="openNew">+ Nuevo gasto automático</button>
+  <TpLayout>
+    <!-- ===== Encabezado ===== -->
+    <div class="flex flex-wrap items-center gap-3">
+      <div class="min-w-0 flex-[1_1_220px]">
+        <h1 :class="pageTitle">Gastos automáticos</h1>
+        <p class="mt-0.5 text-[13px]/[18px] text-ink-muted lg:text-sm">Suscripciones y pagos fijos que se registran solos el día del cobro.</p>
+      </div>
+      <button type="button" :class="[iconBtn, 'border-primary bg-primary text-white lg:hidden']" aria-label="Nuevo gasto automático" @click="openNew">
+        <Plus :stroke-width="1.75" aria-hidden="true" />
+      </button>
+      <div class="hidden lg:block">
+        <TpButton @click="openNew">
+          <Plus :stroke-width="1.75" aria-hidden="true" />
+          Nuevo automático
+        </TpButton>
+      </div>
+    </div>
+
+    <!-- ===== Resumen ===== -->
+    <div class="grid grid-cols-2 gap-2.5 lg:grid-cols-4 lg:gap-3">
+      <div v-for="stat in stats" :key="stat.label" class="flex min-w-0 flex-col gap-1 rounded-card border border-line bg-surface-100 px-4 py-3.5">
+        <span class="text-xs text-ink-faint">{{ stat.label }}</span>
+        <TpSkeleton v-if="!ready" class="my-0.5 block h-5 w-24 rounded-chip" />
+        <strong v-else class="truncate text-lg/6 font-semibold tabular-nums">{{ stat.value }}</strong>
+      </div>
+    </div>
+
+    <!-- ===== Lista ===== -->
+    <div class="flex flex-col gap-2.5">
+      <template v-if="!ready">
+        <TpSkeleton v-for="n in 3" :key="n" class="block h-[72px] rounded-tile" />
+      </template>
+
+      <div v-else-if="!sortedRecurring.length" class="flex flex-col items-center gap-2 rounded-card bg-surface-100 px-6 py-10 text-center">
+        <span class="grid grid-cols-[minmax(0,1fr)] size-12 place-items-center rounded-full bg-surface-200 text-accent-light [&_svg]:size-6"><Repeat :stroke-width="1.75" aria-hidden="true" /></span>
+        <strong class="text-base font-semibold">Aún no tienes gastos automáticos</strong>
+        <span class="max-w-[420px] text-sm text-ink-muted">Agrega tus suscripciones (música, video, nube…) y se registran solas el día del cobro.</span>
+        <TpButton class="mt-2" @click="openNew">Agregar el primero</TpButton>
       </div>
 
-      <!-- Summary -->
-      <div class="rec-summary">
-        <div class="sum-chip">
-          <span>🔁 Total mensual</span>
-          <strong class="text-red">{{ formatCurrency(store.recurringMonthlyTotal) }}</strong>
-        </div>
-        <div class="sum-chip">
-          <span>✅ Activos</span>
-          <strong>{{ activeCount }} de {{ store.recurringExpenses.length }}</strong>
-        </div>
-        <div class="sum-chip" v-if="nextCharge">
-          <span>📅 Próximo cobro</span>
-          <strong class="text-amber">{{ nextCharge.rec.name }} · {{ formatDate(nextCharge.date) }}</strong>
-        </div>
-      </div>
-
-      <!-- List -->
-      <div class="rec-list">
-        <div
-          v-for="rec in sortedRecurring"
-          :key="rec.id"
-          class="rec-card"
-          :class="{ inactive: !rec.active }"
+      <div
+        v-for="rec in sortedRecurring"
+        v-else
+        :key="rec.id"
+        class="flex items-center gap-3 rounded-tile border border-line bg-surface-100 px-4 py-3"
+        :class="{ 'opacity-60': !rec.active }"
+      >
+        <button type="button" class="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left" @click="openEdit(rec)">
+          <span class="grid grid-cols-[minmax(0,1fr)] size-10 shrink-0 place-items-center rounded-full bg-surface-300 text-accent-light [&_svg]:size-[18px]">
+            <Repeat :stroke-width="1.75" aria-hidden="true" />
+          </span>
+          <span class="flex min-w-0 flex-1 flex-col gap-0.5">
+            <strong class="text-[15px]/5 font-semibold">{{ rec.name }}</strong>
+            <span class="text-xs text-ink-faint">
+              <span v-if="rec.currency === 'USD'" class="mr-1 inline-flex rounded-chip border border-line bg-primary-soft px-1.5 py-px text-[11px] font-semibold text-ink">USD {{ rec.amountUsd }}</span>
+              Día {{ rec.dayOfMonth }} · {{ accountName(rec.accountId) }} · {{ categoryName(rec.category) }}
+            </span>
+            <span class="text-xs text-ink-faint">{{ rec.active ? `Próximo cobro: ${mediumDate(parseISO(store.nextRecurringDate(rec)))}` : 'Pausado' }}</span>
+          </span>
+          <span class="text-base font-semibold whitespace-nowrap tabular-nums">−{{ plain(rec.amount) }}</span>
+        </button>
+        <button
+          type="button"
+          role="switch"
+          :aria-checked="rec.active"
+          :aria-label="rec.active ? `Pausar ${rec.name}` : `Activar ${rec.name}`"
+          class="relative h-7 w-[46px] shrink-0 cursor-pointer rounded-full transition-colors"
+          :class="rec.active ? 'bg-primary' : 'bg-surface-300'"
+          @click="toggleActive(rec)"
         >
-          <div class="rec-icon">{{ rec.icon }}</div>
-
-          <div class="rec-info">
-            <h3>{{ rec.name }}</h3>
-            <p class="rec-meta">
-              Día {{ rec.dayOfMonth }} de cada mes · {{ getAccName(rec.accountId) }}
-            </p>
-            <p class="rec-meta" v-if="rec.active">
-              Próximo cobro: {{ formatDate(store.nextRecurringDate(rec)) }}
-            </p>
-            <p class="rec-meta" v-else>Pausado</p>
-          </div>
-
-          <div class="rec-amount">
-            -{{ formatCurrency(rec.amount) }}
-            <small v-if="rec.currency === 'USD'">{{ rec.amountUsd }} USD · aprox.</small>
-          </div>
-
-          <div class="rec-actions">
-            <button
-              class="toggle"
-              :class="{ on: rec.active }"
-              :title="rec.active ? 'Pausar' : 'Activar'"
-              @click="toggleActive(rec)"
-            >
-              <span />
-            </button>
-            <button class="icon-btn" @click="openEdit(rec)">✏️</button>
-            <button class="icon-btn danger" @click="remove(rec)">🗑️</button>
-          </div>
-        </div>
-
-        <div v-if="!store.recurringExpenses.length" class="empty">
-          <span>🔁</span>
-          <p>Aún no tienes gastos automáticos</p>
-          <small>Agrega tus membresías (Netflix, PlayStation Plus...) y se registrarán solas el día del cobro.</small>
-        </div>
+          <span class="absolute top-[3px] left-[3px] size-[22px] rounded-full transition-transform" :class="rec.active ? 'translate-x-[18px] bg-white' : 'bg-ink-muted'" />
+        </button>
       </div>
     </div>
-  </AppLayout>
 
-  <!-- Modal -->
-  <Teleport to="body" v-if="showModal">
-    <div class="modal-backdrop" @click.self="closeModal">
-      <div class="modal">
-        <div class="modal-header">
-          <h2>{{ editing ? 'Editar gasto automático' : 'Nuevo gasto automático' }}</h2>
-          <button @click="closeModal">✕</button>
-        </div>
+    <p class="m-0 flex gap-2.5 rounded-tile border border-line bg-surface-100 px-4 py-3 text-[13px]/[19px] text-ink-muted [&_svg]:mt-0.5 [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-accent-light">
+      <Info :stroke-width="1.75" aria-hidden="true" />
+      Los cobros en dólares usan la TRM del día anterior al cobro, más la comisión de la tarjeta, que se registra como gasto aparte.
+    </p>
+  </TpLayout>
 
-        <div class="modal-body">
-          <div class="form-grid">
-            <div class="form-group full">
-              <label>Nombre *</label>
-              <input v-model="form.name" type="text" placeholder="Ej: PlayStation Plus" />
-            </div>
+  <TpSheet v-if="showSheet" :title="editing ? 'Editar gasto automático' : 'Nuevo gasto automático'" @close="closeSheet">
+    <label class="flex flex-col gap-1.5">
+      <span :class="fieldLabel">Nombre</span>
+      <input v-model="form.name" :class="fieldInput" placeholder="Ej: Plan de celular" />
+    </label>
 
-            <div class="form-group">
-              <label>Moneda</label>
-              <select v-model="form.currency">
-                <option value="COP">Pesos (COP)</option>
-                <option value="USD">Dólares (USD)</option>
-              </select>
-            </div>
-
-            <div class="form-group" v-if="form.currency === 'USD'">
-              <label>Monto en USD *</label>
-              <input v-model.number="form.amountUsd" type="number" min="0" step="0.01" placeholder="20" />
-            </div>
-
-            <div class="form-group" v-else>
-              <label>Monto *</label>
-              <input v-model.number="form.amount" type="number" min="0" step="1000" placeholder="0" />
-            </div>
-
-            <small v-if="form.currency === 'USD'" class="hint full">
-              <template v-if="trmToday && form.amountUsd > 0">
-                ≈ {{ formatCurrency(usdToCop(form.amountUsd, trmToday)) }} con la TRM de hoy ({{ trmToday }}).
-              </template>
-              Cada cobro se convierte con la TRM oficial del día anterior
-              <template v-if="feeRate > 0"> y se agrega la comisión del {{ feeRate }} % de la tarjeta</template>.
-            </small>
-
-            <div class="form-group">
-              <label>Día del cobro *</label>
-              <input v-model.number="form.dayOfMonth" type="number" min="1" max="31" />
-            </div>
-
-            <div class="form-group">
-              <label>Cuenta *</label>
-              <select v-model="form.accountId">
-                <option value="">Seleccionar...</option>
-                <option v-for="acc in store.accounts" :key="acc.id" :value="acc.id">
-                  {{ acc.icon }} {{ acc.name }}
-                </option>
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label>Categoría *</label>
-              <CategorySelect v-model="form.category" type="expense" />
-            </div>
-
-            <div class="form-group full">
-              <label>Primer cobro desde</label>
-              <input v-model="form.startDate" type="date" />
-              <small class="hint">
-                Se registran los cobros desde esta fecha. Si pones una fecha pasada, se agregan los cobros que ya ocurrieron.
-              </small>
-            </div>
-
-            <div class="form-group full">
-              <label>Icono</label>
-              <div class="icon-picker">
-                <button
-                  v-for="icon in icons"
-                  :key="icon"
-                  type="button"
-                  class="icon-opt"
-                  :class="{ selected: form.icon === icon }"
-                  @click="form.icon = icon"
-                >{{ icon }}</button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="modal-footer">
-          <button class="btn-cancel" @click="closeModal">Cancelar</button>
-          <button class="btn-save" @click="save" :disabled="!isValid || isSaving">
-            {{ isSaving ? 'Guardando...' : 'Guardar' }}
-          </button>
-        </div>
-      </div>
+    <div class="grid grid-cols-2 gap-1 rounded-full bg-surface-200 p-1">
+      <button
+        v-for="c in [{ v: 'COP', l: 'En pesos' }, { v: 'USD', l: 'En dólares' }]"
+        :key="c.v"
+        type="button"
+        class="min-h-10 cursor-pointer rounded-full text-sm font-medium"
+        :class="form.currency === c.v ? 'bg-ink text-on-inverse' : 'text-ink-muted'"
+        @click="form.currency = c.v as 'COP' | 'USD'"
+      >
+        {{ c.l }}
+      </button>
     </div>
-  </Teleport>
+
+    <div class="grid grid-cols-2 gap-3">
+      <label v-if="form.currency === 'USD'" class="flex flex-col gap-1.5">
+        <span :class="fieldLabel">Monto en dólares</span>
+        <input v-model.number="form.amountUsd" type="number" min="0" step="0.01" :class="fieldInput" placeholder="20" />
+      </label>
+      <label v-else class="flex flex-col gap-1.5">
+        <span :class="fieldLabel">Monto</span>
+        <input v-model.number="form.amount" type="number" min="0" step="1000" :class="fieldInput" placeholder="0" />
+      </label>
+      <label class="flex flex-col gap-1.5">
+        <span :class="fieldLabel">Día del cobro</span>
+        <input v-model.number="form.dayOfMonth" type="number" min="1" max="31" :class="fieldInput" />
+      </label>
+    </div>
+
+    <p v-if="form.currency === 'USD'" class="m-0 text-xs/[17px] text-ink-faint">
+      <template v-if="trmToday && form.amountUsd > 0">≈ {{ money(usdToCop(form.amountUsd, trmToday)) }} con la TRM de hoy ({{ trmToday }}). </template>
+      Cada cobro se convierte con la TRM del día anterior<template v-if="feeRate > 0"> y se agrega la comisión del {{ feeRate }} % de la tarjeta</template>.
+    </p>
+
+    <label class="flex flex-col gap-1.5">
+      <span :class="fieldLabel">Cuenta o tarjeta</span>
+      <select v-model="form.accountId" :class="fieldInput">
+        <option value="" disabled>Elige la cuenta</option>
+        <option v-for="acc in store.accounts" :key="acc.id" :value="acc.id">{{ acc.name }}</option>
+      </select>
+    </label>
+    <div class="flex flex-col gap-1.5">
+      <span :class="fieldLabel">Categoría</span>
+      <TpCategorySelect v-model="form.category" type="expense" />
+    </div>
+    <label class="flex flex-col gap-1.5">
+      <span :class="fieldLabel">Primer cobro desde</span>
+      <input v-model="form.startDate" type="date" :class="fieldInput" />
+      <small class="text-xs text-ink-faint">Si pones una fecha pasada, se agregan los cobros que ya ocurrieron.</small>
+    </label>
+
+    <template #footer>
+      <TpButton v-if="editing" variant="danger" @click="confirming = true">Eliminar</TpButton>
+      <div class="hidden lg:block"><TpButton variant="ghost" @click="closeSheet">Cancelar</TpButton></div>
+      <TpButton block class="lg:w-auto lg:min-w-40" :disabled="!isValid || isSaving" @click="save">{{ isSaving ? 'Guardando…' : 'Guardar' }}</TpButton>
+    </template>
+  </TpSheet>
+
+  <TpConfirm
+    v-if="confirming && editing"
+    :title="`¿Eliminar ${editing.name}?`"
+    text="Deja de registrarse solo. Los movimientos que ya se registraron se conservan."
+    :busy="isSaving"
+    @cancel="confirming = false"
+    @confirm="remove"
+  />
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive, onMounted } from 'vue'
-import AppLayout from '@/layouts/AppLayout.vue'
-import CategorySelect from '@/components/CategorySelect.vue'
+import { computed, onMounted, reactive, ref } from 'vue'
+import { Info, Plus, Repeat } from 'lucide-vue-next'
+import TpLayout from '@/layouts/TpLayout.vue'
+import TpButton from '@/components/tp/TpButton.vue'
+import TpSheet from '@/components/tp/TpSheet.vue'
+import TpConfirm from '@/components/tp/TpConfirm.vue'
+import TpSkeleton from '@/components/tp/TpSkeleton.vue'
+import TpCategorySelect from '@/components/tp/TpCategorySelect.vue'
+import { fieldInput, fieldLabel, mediumDate, money, parseISO, plain, shortDate } from '@/components/tp/format'
 import { useFinanceStore } from '@/stores/finance'
-import { formatCurrency, formatDate } from '@/utils/formatters'
 import { addDaysISO, todayISO } from '@/utils/dates'
 import { trmForCharge, usdToCop } from '@/utils/exchange'
 import type { RecurringExpense } from '@/interfaces'
 
 const store = useFinanceStore()
+const ready = computed(() => store.loaded.recurring && store.loaded.accounts)
+
+const pageTitle = 'm-0 font-sans text-xl/[26px] font-semibold lg:text-[26px]/8 lg:tracking-[-0.3px]'
+const iconBtn =
+  'relative grid size-10 shrink-0 cursor-pointer place-items-center rounded-full border border-line-strong text-ink transition-colors hover:bg-surface-200 [&_svg]:size-[18px]'
+
+// TRM de hoy para mostrar el valor aproximado en pesos de los cobros en USD
+const trmToday = ref<number | null>(null)
 
 onMounted(async () => {
   await Promise.all([store.loadAccounts(), store.loadRecurringExpenses()])
   trmToday.value = await trmForCharge(todayISO())
 })
 
-const icons = ['🎮', '🎬', '🎵', '📺', '☁️', '📱', '🏋️', '📰', '🛡️', '💡', '🌐', '🔁']
+const accountName = (id: string) => store.getAccountById(id)?.name || 'Sin cuenta'
+const categoryName = (id: string) => store.getCategoryById(id)?.name || 'Sin categoría'
 
-const showModal = ref(false)
+const sortedRecurring = computed(() =>
+  [...store.recurringExpenses].sort((a, b) => Number(b.active) - Number(a.active) || a.dayOfMonth - b.dayOfMonth)
+)
+
+const nextCharge = computed(
+  () =>
+    store.recurringExpenses
+      .filter(r => r.active)
+      .map(rec => ({ rec, date: store.nextRecurringDate(rec) }))
+      .sort((a, b) => a.date.localeCompare(b.date))[0]
+)
+
+const stats = computed(() => {
+  const active = store.recurringExpenses.filter(r => r.active).length
+  return [
+    { label: 'Al mes', value: money(store.recurringMonthlyTotal) },
+    { label: 'Activos', value: `${active} de ${store.recurringExpenses.length}` },
+    { label: 'Próximo cobro', value: nextCharge.value ? `${nextCharge.value.rec.name} · ${shortDate(parseISO(nextCharge.value.date))}` : '—' },
+    { label: 'En dólares', value: String(store.recurringExpenses.filter(r => r.currency === 'USD').length) }
+  ]
+})
+
+// ---------- Formulario ----------
+const showSheet = ref(false)
 const isSaving = ref(false)
+const confirming = ref(false)
 const editing = ref<RecurringExpense | null>(null)
 
 const defaultForm = () => ({
@@ -199,54 +220,31 @@ const defaultForm = () => ({
   dayOfMonth: new Date().getDate(),
   accountId: '',
   category: '',
-  icon: '🎮',
+  icon: '🔁',
   startDate: todayISO(),
   currency: 'COP' as 'COP' | 'USD',
   amountUsd: 0
 })
 
-// TRM de hoy para mostrar el valor aproximado en pesos de los cobros en USD
-const trmToday = ref<number | null>(null)
+const form = reactive(defaultForm())
 const feeRate = computed(() => store.getAccountById(form.accountId)?.fxFeeRate || 0)
 
-const form = reactive(defaultForm())
-
-const activeCount = computed(() => store.recurringExpenses.filter(r => r.active).length)
-
-const sortedRecurring = computed(() =>
-  [...store.recurringExpenses].sort((a, b) =>
-    Number(b.active) - Number(a.active) || a.dayOfMonth - b.dayOfMonth
-  )
+const isValid = computed(
+  () =>
+    !!form.name.trim() &&
+    (form.currency === 'USD' ? form.amountUsd > 0 : form.amount > 0) &&
+    Number.isInteger(form.dayOfMonth) &&
+    form.dayOfMonth >= 1 &&
+    form.dayOfMonth <= 31 &&
+    !!form.accountId &&
+    !!form.category &&
+    !!form.startDate
 )
-
-const nextCharge = computed(() => {
-  const upcoming = store.recurringExpenses
-    .filter(r => r.active)
-    .map(rec => ({ rec, date: store.nextRecurringDate(rec) }))
-    .sort((a, b) => a.date.localeCompare(b.date))
-
-  return upcoming[0]
-})
-
-const isValid = computed(() =>
-  form.name.trim() &&
-  (form.currency === 'USD' ? form.amountUsd > 0 : form.amount > 0) &&
-  Number.isInteger(form.dayOfMonth) &&
-  form.dayOfMonth >= 1 &&
-  form.dayOfMonth <= 31 &&
-  form.accountId &&
-  form.category &&
-  form.startDate
-)
-
-function getAccName(id: string) {
-  return store.getAccountById(id)?.name || 'Sin cuenta'
-}
 
 function openNew() {
   editing.value = null
   Object.assign(form, defaultForm())
-  showModal.value = true
+  showSheet.value = true
 }
 
 function openEdit(rec: RecurringExpense) {
@@ -262,25 +260,24 @@ function openEdit(rec: RecurringExpense) {
     currency: rec.currency || 'COP',
     amountUsd: rec.amountUsd || 0
   })
-  showModal.value = true
+  showSheet.value = true
 }
 
-function closeModal() {
-  showModal.value = false
+function closeSheet() {
+  showSheet.value = false
+  confirming.value = false
   editing.value = null
 }
 
 async function save() {
   if (!isValid.value || isSaving.value) return
   isSaving.value = true
-
   try {
     const data = { ...form, name: form.name.trim() }
-
     // En USD, el monto en pesos es un estimado con la TRM de hoy (para el total
     // mensual); cada cobro real se convierte con la TRM de su fecha
     if (data.currency === 'USD') {
-      const trm = trmToday.value || await trmForCharge(todayISO())
+      const trm = trmToday.value || (await trmForCharge(todayISO()))
       if (trm) data.amount = usdToCop(data.amountUsd, trm)
     } else {
       data.amountUsd = 0
@@ -288,18 +285,13 @@ async function save() {
 
     if (editing.value) {
       const updates: Partial<RecurringExpense> = { ...data }
-
       // Si cambia la fecha de inicio, se vuelve a revisar desde esa fecha
-      if (data.startDate !== editing.value.startDate) {
-        updates.lastRunDate = addDaysISO(data.startDate, -1)
-      }
-
+      if (data.startDate !== editing.value.startDate) updates.lastRunDate = addDaysISO(data.startDate, -1)
       await store.updateRecurringExpense(editing.value.id, updates)
     } else {
       await store.addRecurringExpense({ ...data, active: true })
     }
-
-    closeModal()
+    closeSheet()
   } finally {
     isSaving.value = false
   }
@@ -307,297 +299,19 @@ async function save() {
 
 async function toggleActive(rec: RecurringExpense) {
   const updates: Partial<RecurringExpense> = { active: !rec.active }
-
   // Al reactivar no se cobran los meses que estuvo pausado
-  if (!rec.active) {
-    updates.lastRunDate = addDaysISO(todayISO(), -1)
-  }
-
+  if (!rec.active) updates.lastRunDate = addDaysISO(todayISO(), -1)
   await store.updateRecurringExpense(rec.id, updates)
 }
 
-async function remove(rec: RecurringExpense) {
-  if (!confirm(`¿Eliminar "${rec.name}"? Los movimientos ya registrados se conservan.`)) return
-  await store.deleteRecurringExpense(rec.id)
+async function remove() {
+  if (!editing.value || isSaving.value) return
+  isSaving.value = true
+  try {
+    await store.deleteRecurringExpense(editing.value.id)
+    closeSheet()
+  } finally {
+    isSaving.value = false
+  }
 }
 </script>
-
-<style scoped>
-.recurring-page { display: flex; flex-direction: column; gap: 20px; }
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.header-subtitle { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
-
-.btn-add {
-  background: linear-gradient(135deg, var(--accent-green), #00b377);
-  border: none;
-  border-radius: 10px;
-  padding: 10px 20px;
-  color: #000;
-  font-weight: 600;
-  font-size: 13px;
-  cursor: pointer;
-  font-family: 'DM Sans', sans-serif;
-  box-shadow: 0 4px 12px rgba(0,214,143,0.25);
-}
-
-.rec-summary { display: flex; gap: 12px; flex-wrap: wrap; }
-
-.sum-chip {
-  flex: 1;
-  min-width: 150px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 14px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.sum-chip span { font-size: 11px; color: var(--text-muted); }
-.sum-chip strong { font-family: 'JetBrains Mono', monospace; font-size: 16px; color: var(--text-primary); }
-
-.text-red { color: var(--accent-red) !important; }
-.text-amber { color: var(--accent-amber) !important; }
-
-.rec-list { display: flex; flex-direction: column; gap: 10px; }
-
-.rec-card {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 14px 16px;
-  transition: all 0.2s;
-}
-
-.rec-card:hover { border-color: var(--border-light); }
-.rec-card.inactive { opacity: 0.55; }
-
-.rec-icon {
-  font-size: 22px;
-  width: 44px;
-  height: 44px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-}
-
-.rec-info { flex: 1; min-width: 0; }
-.rec-info h3 { font-size: 15px; font-weight: 600; color: var(--text-primary); margin-bottom: 2px; }
-.rec-meta { font-size: 12px; color: var(--text-muted); }
-
-.rec-amount {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--accent-red);
-  white-space: nowrap;
-}
-
-.rec-amount small {
-  display: block;
-  font-size: 11px;
-  font-weight: 400;
-  color: var(--text-muted);
-  text-align: right;
-}
-
-.hint.full { grid-column: 1 / -1; }
-
-.rec-actions { display: flex; align-items: center; gap: 6px; }
-
-.toggle {
-  width: 38px;
-  height: 22px;
-  border-radius: 11px;
-  border: 1px solid var(--border);
-  background: var(--bg-elevated);
-  position: relative;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.toggle span {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: var(--text-muted);
-  transition: all 0.2s;
-}
-
-.toggle.on { background: var(--accent-green-dim); border-color: var(--accent-green); }
-.toggle.on span { left: 18px; background: var(--accent-green); }
-
-.icon-btn {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 5px 8px;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.icon-btn:hover { border-color: var(--accent-blue); }
-.icon-btn.danger:hover { border-color: var(--accent-red); }
-
-.empty {
-  background: var(--bg-card);
-  border: 2px dashed var(--border-light);
-  border-radius: 16px;
-  padding: 40px 20px;
-  text-align: center;
-  color: var(--text-muted);
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  align-items: center;
-}
-
-.empty span { font-size: 32px; opacity: 0.5; }
-.empty p { font-size: 14px; color: var(--text-secondary); }
-.empty small { font-size: 12px; max-width: 360px; }
-
-@media (max-width: 600px) {
-  .rec-card { flex-wrap: wrap; }
-  .rec-info { flex-basis: calc(100% - 58px); }
-  .rec-amount { margin-left: 58px; }
-  .rec-actions { margin-left: auto; }
-}
-
-/* Modal */
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.7);
-  backdrop-filter: blur(4px);
-  z-index: 200;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-}
-
-.modal {
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  width: 100%;
-  max-width: 500px;
-  max-height: 90vh;
-  overflow-y: auto;
-  animation: fadeInUp 0.3s ease;
-}
-
-.modal-header {
-  padding: 24px 24px 0;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.modal-header h2 { font-size: 20px; font-weight: 700; color: var(--text-primary); }
-.modal-header button {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  width: 32px; height: 32px;
-  cursor: pointer;
-  color: var(--text-secondary);
-  font-size: 14px;
-}
-
-.modal-body { padding: 24px; }
-
-.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-.form-group { display: flex; flex-direction: column; gap: 6px; }
-.form-group.full { grid-column: 1 / -1; }
-
-.form-group label {
-  font-size: 11px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  font-weight: 500;
-}
-
-.form-group input, .form-group select {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 10px 12px;
-  color: var(--text-primary);
-  font-size: 14px;
-  font-family: 'DM Sans', sans-serif;
-  width: 100%;
-}
-
-.form-group input:focus, .form-group select:focus { outline: none; border-color: var(--accent-green); }
-
-.hint { font-size: 11px; color: var(--text-muted); }
-
-.icon-picker { display: flex; flex-wrap: wrap; gap: 6px; }
-
-.icon-opt {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--bg-elevated);
-  cursor: pointer;
-  font-size: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-}
-
-.icon-opt.selected, .icon-opt:hover { border-color: var(--accent-green); background: var(--accent-green-dim); }
-
-.modal-footer { padding: 0 24px 24px; display: flex; gap: 10px; justify-content: flex-end; }
-
-.btn-cancel {
-  padding: 10px 20px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  color: var(--text-secondary);
-  font-size: 14px;
-  cursor: pointer;
-  font-family: 'DM Sans', sans-serif;
-}
-
-.btn-save {
-  padding: 10px 24px;
-  background: linear-gradient(135deg, var(--accent-green), #00b377);
-  border: none;
-  border-radius: 10px;
-  color: #000;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: 'DM Sans', sans-serif;
-}
-
-.btn-save:disabled { opacity: 0.4; cursor: not-allowed; }
-
-option { background: var(--bg-elevated); }
-</style>

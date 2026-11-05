@@ -1,80 +1,29 @@
 <template>
-  <Transition name="toast">
-    <div v-if="advisorToast.visible" class="advisor-toast" role="status">
-      <div class="toast-head">
-        <span>🤖 Tu asesor</span>
-        <button aria-label="Cerrar" @click="hideAdvice">✕</button>
+  <!-- Aviso del asesor al registrar un gasto (arriba en el celular, abajo a la derecha en escritorio) -->
+  <Transition
+    enter-active-class="transition duration-300 ease-out motion-reduce:transition-none"
+    enter-from-class="opacity-0 translate-y-3"
+    leave-active-class="transition duration-200 ease-in motion-reduce:transition-none"
+    leave-to-class="opacity-0 translate-y-3"
+  >
+    <div
+      v-if="advisorToast.visible"
+      class="fixed inset-x-4 top-[calc(16px+env(safe-area-inset-top))] z-[90] flex flex-col gap-2 rounded-card border border-line bg-surface-200 p-3 font-sans text-ink shadow-float lg:top-auto lg:right-6 lg:bottom-6 lg:left-auto lg:w-[380px]"
+      role="status"
+    >
+      <div class="flex items-center justify-between px-1 text-[11px]/[14px] font-semibold tracking-[0.5px] text-ink-faint uppercase">
+        <span>Tu asesor</span>
+        <button type="button" class="grid grid-cols-[minmax(0,1fr)] size-7 cursor-pointer place-items-center rounded-full hover:bg-surface-300 hover:text-ink [&_svg]:size-4" aria-label="Cerrar" @click="hideAdvice">
+          <X :stroke-width="1.75" aria-hidden="true" />
+        </button>
       </div>
-      <div v-for="(tip, i) in advisorToast.tips" :key="i" class="tip" :class="tip.level">
-        <span class="tip-icon">{{ tip.icon }}</span>
-        <div>
-          <strong>{{ tip.title }}</strong>
-          <p>{{ tip.text }}</p>
-        </div>
-      </div>
+      <AdviceItem v-for="(tip, i) in advisorToast.tips" :key="i" :tip="tip" />
     </div>
   </Transition>
 </template>
 
 <script setup lang="ts">
+import { X } from 'lucide-vue-next'
+import AdviceItem from '@/components/tp/AdviceItem.vue'
 import { advisorToast, hideAdvice } from '@/services/advisorToast'
 </script>
-
-<style scoped>
-.advisor-toast {
-  position: fixed;
-  z-index: 200;
-  right: 16px;
-  bottom: 16px;
-  width: min(380px, calc(100vw - 32px));
-  max-height: 60dvh;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 12px;
-  border-radius: 16px;
-  border: 1px solid var(--border-light);
-  background: var(--bg-surface);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
-}
-
-.toast-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 12px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.toast-head button { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px; }
-
-.tip {
-  display: flex;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  border-left: 4px solid var(--accent-blue);
-  background: var(--bg-card);
-}
-
-.tip.danger { border-left-color: var(--accent-red); background: rgba(255, 71, 87, 0.08); }
-.tip.warn { border-left-color: var(--accent-amber); }
-.tip.good { border-left-color: var(--accent-green); }
-.tip-icon { font-size: 20px; line-height: 1.2; }
-.tip strong { font-size: 13px; color: var(--text-primary); }
-.tip p { font-size: 12px; color: var(--text-secondary); margin-top: 2px; line-height: 1.4; }
-
-.toast-enter-active,
-.toast-leave-active { transition: all 0.25s ease; }
-
-.toast-enter-from,
-.toast-leave-to { opacity: 0; transform: translateY(16px); }
-
-@media (max-width: 768px) {
-  /* Encima de la barra inferior del celular */
-  .advisor-toast { left: 16px; right: 16px; bottom: 84px; width: auto; }
-}
-</style>

@@ -8,7 +8,7 @@ import {
   updateDoc
 } from 'firebase/firestore'
 
-import { db } from '@/firebase/config'
+import { userCollection, userDoc } from '@/firebase/dataRoot'
 
 import type { Transaction } from '@/interfaces'
 
@@ -17,7 +17,7 @@ const COLLECTION = 'transactions'
 export const getTransactionsService = async () => {
 
   const snapshot = await getDocs(
-    collection(db, COLLECTION)
+    userCollection(COLLECTION)
   )
 
   return snapshot.docs.map(docu => ({
@@ -31,7 +31,7 @@ export const createTransactionService = async (
 ) => {
 
   return await addDoc(
-    collection(db, COLLECTION),
+    userCollection(COLLECTION),
     transaction
   )
 }
@@ -43,7 +43,7 @@ export const setTransactionService = async (
 ) => {
 
   await setDoc(
-    doc(db, COLLECTION, id),
+    userDoc(COLLECTION, id),
     transaction
   )
 }
@@ -53,7 +53,7 @@ export const updateTransactionService = async (
   data: Partial<Transaction>
 ) => {
 
-  const ref = doc(db, COLLECTION, id)
+  const ref = userDoc(COLLECTION, id)
 
   await updateDoc(ref, data)
 }
@@ -62,7 +62,7 @@ export const deleteTransactionService = async (
   id: string
 ) => {
 
-  const ref = doc(db, COLLECTION, id)
+  const ref = userDoc(COLLECTION, id)
 
   await deleteDoc(ref)
 }

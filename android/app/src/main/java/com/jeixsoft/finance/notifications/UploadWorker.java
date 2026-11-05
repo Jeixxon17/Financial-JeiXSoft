@@ -89,7 +89,7 @@ public class UploadWorker extends Worker {
             while (queue.length() > 0) {
                 for (int i = 0; i < queue.length(); i++) {
                     JSONObject item = queue.getJSONObject(i);
-                    int status = upload(store.getProjectId(), idToken, item);
+                    int status = upload(store.getProjectId(), store.getCollectionPath(), idToken, item);
 
                     // 409: ya existía en Firestore (subida antes)
                     if (status == 200 || status == 409) {
@@ -135,10 +135,10 @@ public class UploadWorker extends Worker {
     }
 
     // Crea el documento con id fijo; si ya existe Firestore responde 409
-    private static int upload(String projectId, String idToken, JSONObject item) throws Exception {
+    private static int upload(String projectId, String collectionPath, String idToken, JSONObject item) throws Exception {
         String id = item.getString("id");
         URL url = new URL("https://firestore.googleapis.com/v1/projects/" + projectId
-            + "/databases/(default)/documents/pendingTransactions?documentId=" + URLEncoder.encode(id, "UTF-8"));
+            + "/databases/(default)/documents/" + collectionPath + "?documentId=" + URLEncoder.encode(id, "UTF-8"));
 
         JSONObject fields = new JSONObject();
         Iterator<String> keys = item.keys();

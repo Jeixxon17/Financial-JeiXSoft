@@ -158,6 +158,8 @@ public class BankNotificationService extends NotificationListenerService {
         boolean isBankApp = BANK_PACKAGES.contains(pkg);
         boolean isSms = SMS_PACKAGES.contains(pkg);
         if (!isBankApp && !isSms) return;
+        // Sin sesión (sin autorización, sesión cerrada o cuenta eliminada) no se guarda nada
+        if (!PendingStore.get(this).hasSession()) return;
 
         Notification notification = sbn.getNotification();
         if ((notification.flags & Notification.FLAG_GROUP_SUMMARY) != 0) return;

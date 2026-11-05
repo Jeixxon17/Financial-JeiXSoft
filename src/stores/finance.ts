@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { ref, computed } from "vue";
+import { ref, computed, reactive } from "vue";
 
 import type {
   Account,
@@ -200,6 +200,18 @@ export const useFinanceStore = defineStore("finance", () => {
   // =========================================
 
   const loading = ref(false);
+  // Primera carga de cada colección desde Firebase (para los skeleton loaders).
+  // Queda en true aunque falle, para no dejar el skeleton para siempre.
+  const loaded = reactive({
+    accounts: false,
+    transactions: false,
+    paychecks: false,
+    pending: false,
+    recurring: false,
+    categories: false,
+    budgets: false,
+    goals: false,
+  });
 
   const accounts = ref<Account[]>([]);
   const transactions = ref<Transaction[]>([]);
@@ -225,6 +237,7 @@ export const useFinanceStore = defineStore("finance", () => {
       console.error("Error loading accounts", error);
     } finally {
       loading.value = false;
+      loaded.accounts = true;
     }
   }
 
@@ -237,6 +250,7 @@ export const useFinanceStore = defineStore("finance", () => {
       console.error("Error loading transactions", error);
     } finally {
       loading.value = false;
+      loaded.transactions = true;
     }
   }
 
@@ -249,6 +263,7 @@ export const useFinanceStore = defineStore("finance", () => {
       console.error("Error loading paychecks", error);
     } finally {
       loading.value = false;
+      loaded.paychecks = true;
     }
   }
 
@@ -259,6 +274,8 @@ export const useFinanceStore = defineStore("finance", () => {
       );
     } catch (error) {
       console.error("Error loading pending transactions", error);
+    } finally {
+      loaded.pending = true;
     }
   }
 
@@ -307,6 +324,8 @@ export const useFinanceStore = defineStore("finance", () => {
       recurringExpenses.value = await getRecurringExpensesService();
     } catch (error) {
       console.error("Error loading recurring expenses", error);
+    } finally {
+      loaded.recurring = true;
     }
   }
 
@@ -847,6 +866,8 @@ const remaining = computed(() =>
       categories.value = await getCategoriesService();
     } catch (error) {
       console.error("Error loading categories", error);
+    } finally {
+      loaded.categories = true;
     }
   }
 
@@ -986,6 +1007,8 @@ const remaining = computed(() =>
       budgets.value = await getBudgetsService();
     } catch (error) {
       console.error("Error loading budgets", error);
+    } finally {
+      loaded.budgets = true;
     }
   }
 
@@ -1017,6 +1040,8 @@ const remaining = computed(() =>
         .sort((a, b) => a.targetDate.localeCompare(b.targetDate));
     } catch (error) {
       console.error("Error loading savings goals", error);
+    } finally {
+      loaded.goals = true;
     }
   }
 
@@ -1249,6 +1274,7 @@ const remaining = computed(() =>
   return {
     // STATE
     loading,
+    loaded,
 
     accounts,
     transactions,
