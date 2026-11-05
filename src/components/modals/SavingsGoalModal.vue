@@ -1,100 +1,109 @@
 <template>
-  <Teleport to="body">
-    <div class="modal-backdrop" @click.self="!saving && $emit('close')">
-      <div class="modal">
-        <div class="modal-header">
-          <h2>{{ goal ? 'Editar meta' : 'Nueva meta de ahorro' }}</h2>
-          <button class="modal-close" :disabled="saving" @click="$emit('close')">✕</button>
+  <TpSheet :title="goal ? 'Editar meta' : 'Nueva meta de ahorro'" wide @close="!saving && $emit('close')">
+    <p class="m-0 text-sm text-ink-muted">Te decimos cuánto ahorrar al mes y por quincena para llegar a tiempo.</p>
+
+    <div class="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)] lg:items-start">
+      <div class="flex flex-col gap-4">
+        <label class="flex flex-col gap-1.5">
+          <span :class="fieldLabel">¿Para qué ahorras?</span>
+          <input v-model="form.name" :class="fieldInput" placeholder="Ej: Viaje a Punta Cana" />
+        </label>
+
+        <div class="flex flex-col gap-2">
+          <span :class="fieldLabel">Ícono</span>
+          <div class="flex flex-wrap gap-2">
+            <button
+              v-for="g in goalIcons"
+              :key="g.key"
+              type="button"
+              class="grid grid-cols-[minmax(0,1fr)] size-11 cursor-pointer place-items-center rounded-full border transition-colors [&_svg]:size-[18px]"
+              :class="form.icon === g.key ? 'border-primary bg-primary text-white' : 'border-line bg-surface-200 text-ink hover:border-line-strong'"
+              :aria-label="g.label"
+              :aria-pressed="form.icon === g.key"
+              @click="form.icon = g.key"
+            >
+              <component :is="g.icon" :stroke-width="1.75" aria-hidden="true" />
+            </button>
+          </div>
         </div>
 
-        <div class="modal-body">
-          <div class="form-group">
-            <label>Nombre *</label>
-            <input v-model="form.name" type="text" placeholder="Ej: Viaje a Punta Cana" />
-          </div>
-
-          <div class="form-group">
-            <label>Icono</label>
-            <div class="icon-row">
-              <button
-                v-for="icon in icons"
-                :key="icon"
-                type="button"
-                class="icon-btn"
-                :class="{ active: form.icon === icon }"
-                @click="form.icon = icon"
-              >{{ icon }}</button>
-            </div>
-          </div>
-
-          <div class="form-row">
-            <div class="form-group">
-              <label>Empiezo a ahorrar</label>
-              <input v-model="form.startDate" type="date" />
-            </div>
-            <div class="form-group">
-              <label>Necesito el dinero el *</label>
-              <input v-model="form.targetDate" type="date" />
-            </div>
-          </div>
-
-          <!-- Desglose -->
-          <div class="form-group">
-            <label>¿En qué se va el dinero? (opcional)</label>
-            <div v-for="item in form.items" :key="item.id" class="item-row">
-              <input v-model="item.name" type="text" placeholder="Ej: Vuelos" />
-              <input v-model.number="item.amount" type="number" min="0" placeholder="0" />
-              <button type="button" class="remove-btn" @click="removeItem(item.id)">✕</button>
-            </div>
-            <button type="button" class="add-item" @click="addItem">+ Agregar gasto</button>
-          </div>
-
-          <div class="form-group">
-            <label>Total de la meta *</label>
-            <input
-              v-if="!form.items.length"
-              v-model.number="form.targetAmount"
-              type="number"
-              min="0"
-              placeholder="0"
-            />
-            <strong v-else class="total">{{ formatCurrency(itemsTotal) }}</strong>
-          </div>
-
-          <div v-if="preview" class="preview">
-            <span>Para llegar a tiempo</span>
-            <strong>{{ formatCurrency(preview.monthly) }} al mes</strong>
-            <small>{{ formatCurrency(preview.perQuincena) }} por quincena · {{ preview.monthsLeft }} meses</small>
-          </div>
-
-          <div class="form-group">
-            <label>Notas</label>
-            <textarea v-model="form.notes" rows="3" placeholder="Supuestos, fechas, ideas..." />
-          </div>
-
-          <label v-if="goal" class="check">
-            <input v-model="form.active" type="checkbox" />
-            Meta activa (cuenta en el plan del mes y en las quincenas)
+        <div class="grid grid-cols-2 gap-3">
+          <label class="flex flex-col gap-1.5">
+            <span :class="fieldLabel">Empiezo el</span>
+            <input v-model="form.startDate" type="date" :class="fieldInput" />
           </label>
-
-          <p v-if="error" class="error">{{ error }}</p>
+          <label class="flex flex-col gap-1.5">
+            <span :class="fieldLabel">Lo necesito el</span>
+            <input v-model="form.targetDate" type="date" :class="fieldInput" />
+          </label>
         </div>
 
-        <div class="modal-footer">
-          <button class="btn-cancel" :disabled="saving" @click="$emit('close')">Cancelar</button>
-          <button class="btn-save" :disabled="saving || !canSave" @click="save">
-            {{ saving ? 'Guardando...' : 'Guardar' }}
-          </button>
+        <!-- Desglose -->
+        <div class="flex flex-col gap-2">
+          <span :class="fieldLabel">¿En qué se va el dinero? (opcional)</span>
+          <div v-for="item in form.items" :key="item.id" class="grid grid-cols-[minmax(0,1fr)_130px_40px] gap-2">
+            <input v-model="item.name" :class="fieldInput" placeholder="Ej: Vuelos" aria-label="Gasto" />
+            <input v-model.number="item.amount" type="number" min="0" :class="fieldInput" placeholder="0" aria-label="Valor" />
+            <button
+              type="button"
+              class="grid grid-cols-[minmax(0,1fr)] cursor-pointer place-items-center rounded-full text-ink-faint hover:bg-surface-200 hover:text-danger [&_svg]:size-4"
+              aria-label="Quitar"
+              @click="removeItem(item.id)"
+            >
+              <Trash2 :stroke-width="1.75" aria-hidden="true" />
+            </button>
+          </div>
+          <button type="button" class="cursor-pointer self-start p-1 text-sm font-medium text-accent-light hover:text-ink" @click="addItem">+ Agregar gasto</button>
         </div>
+
+        <label v-if="!form.items.length" class="flex flex-col gap-1.5">
+          <span :class="fieldLabel">Total de la meta</span>
+          <input v-model.number="form.targetAmount" type="number" min="0" :class="fieldInput" placeholder="0" />
+        </label>
+
+        <label class="flex flex-col gap-1.5">
+          <span :class="fieldLabel">Notas</span>
+          <textarea v-model="form.notes" rows="3" :class="[fieldInput, 'py-3']" placeholder="Supuestos, fechas, ideas…" />
+        </label>
+
+        <label v-if="goal" class="flex cursor-pointer items-center gap-3 text-sm">
+          <input v-model="form.active" type="checkbox" class="size-4 accent-primary" />
+          Meta activa (cuenta en el plan del mes y en las quincenas)
+        </label>
+      </div>
+
+      <!-- Para llegar a tiempo -->
+      <div class="flex flex-col gap-2.5 rounded-card border border-primary bg-primary-soft/60 p-5">
+        <span class="text-sm font-medium text-ink-muted">Para llegar a tiempo</span>
+        <template v-if="preview">
+          <span class="text-[30px]/9 font-semibold text-accent-light tabular-nums">{{ money(preview.monthly) }}</span>
+          <span class="text-sm text-ink-muted">al mes · {{ money(preview.perQuincena) }} por quincena</span>
+        </template>
+        <span v-else class="text-sm text-ink-faint">Escribe el nombre, las fechas y el total para calcularlo.</span>
+        <div class="my-1.5 h-px bg-line" />
+        <div class="flex justify-between text-[13px] text-ink-muted"><span>Total</span><strong class="text-ink tabular-nums">{{ money(total) }}</strong></div>
+        <div v-if="preview" class="flex justify-between text-[13px] text-ink-muted"><span>Meses de ahorro</span><strong class="text-ink">{{ preview.monthsLeft }}</strong></div>
       </div>
     </div>
-  </Teleport>
-</template>
 
+    <p v-if="error" class="m-0 text-sm text-danger">{{ error }}</p>
+
+    <template #footer>
+      <div class="hidden lg:block"><TpButton variant="ghost" :disabled="saving" @click="$emit('close')">Cancelar</TpButton></div>
+      <TpButton block class="lg:w-auto lg:min-w-40" :disabled="saving || !canSave" @click="save">
+        {{ saving ? 'Guardando…' : goal ? 'Guardar cambios' : 'Crear meta' }}
+      </TpButton>
+    </template>
+  </TpSheet>
+</template>
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
 import { useFinanceStore } from '@/stores/finance'
-import { formatCurrency } from '@/utils/formatters'
+import { Trash2 } from 'lucide-vue-next'
+import TpSheet from '@/components/tp/TpSheet.vue'
+import TpButton from '@/components/tp/TpButton.vue'
+import { fieldInput, fieldLabel, money } from '@/components/tp/format'
+import { goalIcons } from '@/components/tp/goalIcons'
 import { todayISO } from '@/utils/dates'
 import { goalStatus } from '@/utils/plan'
 import type { SavingsGoal, SavingsGoalItem } from '@/interfaces'
@@ -103,7 +112,6 @@ const props = defineProps<{ goal?: SavingsGoal | null }>()
 const emit = defineEmits(['close'])
 
 const store = useFinanceStore()
-const icons = ['⚽', '✈️', '🏝️', '🛟', '🏍️', '🏠', '🎓', '💍', '🎮', '🚗', '💻', '🎁']
 
 const form = reactive({
   name: props.goal?.name || '',
@@ -141,7 +149,7 @@ function draft(): SavingsGoal {
     id: props.goal?.id || '',
     name: form.name.trim(),
     icon: form.icon,
-    color: props.goal?.color || '#00d68f',
+    color: props.goal?.color || '#4f6fdc',
     targetAmount: total.value,
     startDate: form.startDate,
     targetDate: form.targetDate,
@@ -172,176 +180,3 @@ async function save() {
   }
 }
 </script>
-
-<style scoped>
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(4px);
-}
-
-.modal {
-  width: 100%;
-  max-width: 520px;
-  max-height: calc(100dvh - 32px);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  border-radius: 20px;
-  border: 1px solid var(--border);
-  background: var(--bg-surface);
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 20px 0;
-}
-
-.modal-header h2 { font-size: 19px; color: var(--text-primary); }
-
-.modal-close {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  font-size: 16px;
-  cursor: pointer;
-}
-
-.modal-body {
-  padding: 18px 20px;
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-
-.modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  padding: 12px 20px 18px;
-  flex-shrink: 0;
-  border-top: 1px solid var(--border);
-}
-
-/* Android pone un ancho mínimo a los campos de fecha */
-input[type='date'] { min-width: 0; max-width: 100%; appearance: none; -webkit-appearance: none; }
-
-.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.form-group { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-
-.form-group label {
-  font-size: 11px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-input,
-textarea {
-  width: 100%;
-  min-width: 0;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 10px 12px;
-  color: var(--text-primary);
-  font-size: 14px;
-  font-family: inherit;
-}
-
-.icon-row { display: flex; flex-wrap: wrap; gap: 6px; }
-
-.icon-btn {
-  width: 38px;
-  height: 38px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--bg-elevated);
-  font-size: 18px;
-  cursor: pointer;
-}
-
-.icon-btn.active { border-color: var(--accent-green); background: rgba(0, 214, 143, 0.12); }
-
-.item-row { display: grid; grid-template-columns: 1fr 130px 32px; gap: 6px; align-items: center; }
-
-.remove-btn {
-  height: 36px;
-  border: none;
-  border-radius: 8px;
-  background: var(--bg-elevated);
-  color: var(--text-muted);
-  cursor: pointer;
-}
-
-.add-item {
-  align-self: flex-start;
-  background: none;
-  border: 1px dashed var(--border-light);
-  border-radius: 8px;
-  padding: 6px 12px;
-  color: var(--text-secondary);
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.total { font-family: 'JetBrains Mono', monospace; font-size: 18px; color: var(--text-primary); }
-
-.preview {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 12px;
-  border-radius: 12px;
-  background: rgba(0, 214, 143, 0.1);
-  border: 1px solid rgba(0, 214, 143, 0.3);
-}
-
-.preview span { font-size: 11px; color: var(--text-muted); text-transform: uppercase; }
-.preview strong { font-size: 18px; color: var(--accent-green); font-family: 'JetBrains Mono', monospace; }
-.preview small { font-size: 12px; color: var(--text-secondary); }
-
-.check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-secondary); }
-.check input { width: 16px; height: 16px; accent-color: var(--accent-green); }
-
-.error { font-size: 13px; color: var(--accent-red); }
-
-.btn-cancel,
-.btn-save {
-  padding: 10px 18px;
-  border-radius: 10px;
-  font-size: 14px;
-  cursor: pointer;
-}
-
-.btn-cancel { background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text-secondary); }
-
-.btn-save {
-  border: none;
-  background: linear-gradient(135deg, var(--accent-green), #00b377);
-  color: #000;
-  font-weight: 600;
-}
-
-.btn-save:disabled,
-.btn-cancel:disabled { opacity: 0.5; cursor: default; }
-
-@media (max-width: 480px) {
-  .modal-backdrop { padding: 10px; align-items: flex-end; }
-  .modal-body { padding: 16px; }
-  .form-row { grid-template-columns: 1fr; }
-  .item-row { grid-template-columns: 1fr 100px 32px; }
-}
-</style>

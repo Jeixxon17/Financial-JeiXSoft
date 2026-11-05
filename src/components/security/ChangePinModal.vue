@@ -1,39 +1,35 @@
 <template>
-  <Teleport to="body">
-    <div class="modal-overlay" @click.self="$emit('close')">
-      <div class="modal">
-        <div class="modal-header">
-          <h2>Cambiar PIN</h2>
-          <button class="modal-close" @click="$emit('close')">✕</button>
-        </div>
-
-        <div class="modal-body">
-          <template v-if="step !== 'done'">
-            <p class="step-text">{{ stepText }}</p>
-            <PinPad
-              ref="pad"
-              :key="step"
-              :length="PIN_LENGTH"
-              :disabled="busy"
-              :error="error"
-              @complete="onComplete"
-            />
-          </template>
-
-          <div v-else class="done">
-            <span>✅</span>
-            <p>Tu PIN se cambió correctamente</p>
-            <button class="btn-done" @click="$emit('close')">Listo</button>
-          </div>
-        </div>
+  <TpSheet title="Cambiar PIN" @close="$emit('close')">
+    <template v-if="step !== 'done'">
+      <div class="flex gap-1.5" aria-hidden="true">
+        <span v-for="(s, i) in ['current', 'new', 'confirm']" :key="s" class="h-1 flex-1 rounded-full" :class="stepIndex >= i ? 'bg-accent-light' : 'bg-surface-300'" />
       </div>
-    </div>
-  </Teleport>
-</template>
+      <p class="m-0 text-center text-base text-ink-muted">{{ stepText }}</p>
+      <div class="flex min-h-[420px] flex-col lg:min-h-0">
+        <PinPad ref="pad" :key="step" :length="PIN_LENGTH" :disabled="busy" :error="error" @complete="onComplete" />
+      </div>
+    </template>
 
+    <div v-else class="flex flex-col items-center gap-3 py-4 text-center">
+      <span class="grid grid-cols-[minmax(0,1fr)] size-20 animate-pop place-items-center rounded-full bg-linear-135 from-accent-light to-primary motion-reduce:animate-none">
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M5 12.5l4.5 4.5L19 7.5" class="animate-draw [stroke-dasharray:60] [stroke-dashoffset:60] motion-reduce:animate-none motion-reduce:[stroke-dashoffset:0]" />
+        </svg>
+      </span>
+      <h3 class="m-0 font-sans text-xl font-semibold">Tu PIN cambió</h3>
+      <p class="m-0 text-sm text-ink-muted">La próxima vez que entres usa el PIN nuevo.</p>
+    </div>
+
+    <template v-if="step === 'done'" #footer>
+      <TpButton block class="lg:w-auto lg:min-w-40" @click="$emit('close')">Listo</TpButton>
+    </template>
+  </TpSheet>
+</template>
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import PinPad from './PinPad.vue'
+import TpSheet from '@/components/tp/TpSheet.vue'
+import TpButton from '@/components/tp/TpButton.vue'
 import { PIN_LENGTH, changePin, pinErrorMessage } from '@/services/auth.service'
 
 defineEmits(['close'])
@@ -46,6 +42,8 @@ const error = ref('')
 const busy = ref(false)
 const currentPin = ref('')
 const newPin = ref('')
+
+const stepIndex = computed(() => ['current', 'new', 'confirm', 'done'].indexOf(step.value))
 
 const stepText = computed(() => ({
   current: 'Escribe tu PIN actual',
@@ -88,80 +86,3 @@ async function onComplete(pin: string) {
   }
 }
 </script>
-
-<style scoped>
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(4px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-}
-
-.modal {
-  width: 100%;
-  max-width: 380px;
-  max-height: calc(100dvh - 32px);
-  overflow-y: auto;
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 18px 20px;
-  border-bottom: 1px solid var(--border);
-}
-
-.modal-header h2 {
-  font-size: 18px;
-  color: var(--text-primary);
-}
-
-.modal-close {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  font-size: 16px;
-  cursor: pointer;
-}
-
-.modal-body {
-  padding: 20px;
-}
-
-.step-text {
-  text-align: center;
-  color: var(--text-secondary);
-  font-size: 14px;
-  margin-bottom: 18px;
-}
-
-.done {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  text-align: center;
-  color: var(--text-primary);
-}
-
-.done span { font-size: 40px; }
-
-.btn-done {
-  background: linear-gradient(135deg, var(--accent-green), #00b377);
-  border: none;
-  border-radius: 10px;
-  padding: 10px 28px;
-  color: #000;
-  font-weight: 600;
-  cursor: pointer;
-}
-</style>

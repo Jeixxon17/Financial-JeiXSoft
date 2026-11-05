@@ -1,96 +1,90 @@
 <template>
-  <div class="pin-screen">
-    <div class="pin-card">
-      <img :src="logo" alt="JeiXSoft" class="pin-logo" />
+  <!-- PIN de bloqueo: crearlo (primera vez o "Olvidé mi PIN") o escribirlo para abrir la app -->
+  <div
+    class="flex min-h-dvh justify-center bg-screen px-7 pt-[calc(52px+env(safe-area-inset-top))] pb-[calc(20px+env(safe-area-inset-bottom))] font-sans text-ink antialiased lg:items-center lg:p-10"
+  >
+    <main
+      class="flex w-full max-w-[360px] flex-col items-center gap-6 text-center lg:max-w-[440px] lg:gap-5 lg:rounded-sheet lg:border lg:border-line lg:bg-surface-100 lg:px-9 lg:pt-10 lg:pb-7 lg:shadow-float"
+      aria-labelledby="pin-title"
+    >
+      <img :src="appIcon" alt="TuPlataAlDia" class="size-[76px] rounded-card shadow-icon lg:size-[72px]" width="76" height="76" />
 
-      <template v-if="mode === 'loading'">
-        <p class="pin-subtitle">Cargando…</p>
-      </template>
+      <!-- Pasos al crear el PIN después de registrarse -->
+      <div v-if="mode !== 'unlock'" class="flex w-full max-w-[220px] items-center gap-2" aria-hidden="true">
+        <span class="h-1 flex-1 rounded-full bg-accent-light" />
+        <span class="h-1 flex-1 rounded-full" :class="mode === 'confirm' ? 'bg-accent-light' : 'bg-surface-300'" />
+      </div>
 
-      <template v-else-if="mode === 'error'">
-        <h1 class="pin-title">Sin conexión</h1>
-        <p class="pin-subtitle">{{ error }}</p>
-        <button class="pin-retry" @click="detectMode">Reintentar</button>
-      </template>
+      <div class="flex flex-col gap-2">
+        <h1 id="pin-title" :class="titleClass">{{ title }}</h1>
+        <p :class="hintClass">{{ hint }}</p>
+      </div>
 
-      <template v-else>
-        <h1 class="pin-title">{{ title }}</h1>
-        <p class="pin-subtitle">{{ subtitle }}</p>
+      <PinPad
+        ref="pad"
+        :key="mode"
+        :length="PIN_LENGTH"
+        :disabled="busy || lockedFor > 0"
+        :error="lockedFor > 0 ? `Muchos intentos. Espera ${lockedFor} s` : error"
+        @complete="onComplete"
+      />
 
-        <PinPad
-          ref="pad"
-          :key="mode"
-          :length="PIN_LENGTH"
-          :disabled="busy || lockedFor > 0"
-          :error="lockedFor > 0 ? `Espera ${lockedFor} s para intentar de nuevo` : error"
-          @complete="onComplete"
-        />
+      <div class="flex flex-wrap justify-center gap-x-5 gap-y-1">
+        <button v-if="mode === 'confirm'" type="button" :class="link" @click="restart">Empezar de nuevo</button>
+        <button v-if="mode === 'unlock'" type="button" :class="link" @click="forgot">Olvidé mi PIN</button>
+        <button type="button" :class="[link, 'text-ink-muted']" @click="signOutUser">Cerrar sesión</button>
+      </div>
 
-        <button v-if="mode === 'confirm'" class="pin-link" @click="restartSetup">
-          Empezar de nuevo
-        </button>
-      </template>
-
-      <p class="pin-version">v{{ appVersion }}</p>
-    </div>
+      <p class="text-xs text-ink-faint">TuPlataAlDia v{{ appVersion }}</p>
+    </main>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, ref } from 'vue'
 import PinPad from './PinPad.vue'
-import logo from '@/assets/LogoFx.png'
-import {
-  PIN_LENGTH,
-  isPinConfigured,
-  loginWithPin,
-  pinErrorMessage,
-  setupPin
-} from '@/services/auth.service'
+import appIcon from '@/assets/brand/tuplata-app-icon.svg'
+import { PIN_LENGTH, authErrorMessage, authState, forgotPin, setLockPin, signOutUser, unlockWithPin } from '@/services/auth.service'
 
-type Mode = 'loading' | 'error' | 'setup' | 'confirm' | 'login'
+type Mode = 'create' | 'confirm' | 'unlock'
 
 // Tras varios intentos fallidos se bloquea el teclado un rato
 const MAX_ATTEMPTS = 5
 const LOCK_SECONDS = 30
 
-const pad = ref<InstanceType<typeof PinPad> | null>(null)
 const appVersion = __APP_VERSION__
-const mode = ref<Mode>('loading')
+const titleClass = 'm-0 font-sans text-[28px]/[34px] font-semibold tracking-[-0.3px] lg:text-[26px]/8'
+const hintClass = 'm-0 text-base/6 text-ink-muted lg:text-[15px]/[22px]'
+const link = 'cursor-pointer p-1 text-sm font-medium text-accent-light hover:text-ink'
+
+const pad = ref<InstanceType<typeof PinPad> | null>(null)
+const mode = ref<Mode>(!authState.pinSet || authState.resettingPin ? 'create' : 'unlock')
 const error = ref('')
 const busy = ref(false)
 const firstPin = ref('')
-const failedAttempts = ref(0)
+const failed = ref(0)
 const lockedFor = ref(0)
 let lockTimer: ReturnType<typeof setInterval> | null = null
 
-const title = computed(() => ({
-  setup: 'Crea tu PIN',
-  confirm: 'Confirma tu PIN',
-  login: 'Ingresa tu PIN'
-}[mode.value as 'setup' | 'confirm' | 'login']))
+const firstName = computed(() => authState.name.trim().split(/\s+/)[0] || '')
 
-const subtitle = computed(() => ({
-  setup: `Elige ${PIN_LENGTH} dígitos. Con este PIN entrarás a la app.`,
-  confirm: 'Escríbelo otra vez para confirmarlo.',
-  login: 'Tus finanzas están protegidas.'
-}[mode.value as 'setup' | 'confirm' | 'login']))
+const title = computed(() => {
+  if (mode.value === 'create') return authState.resettingPin ? 'Crea un PIN nuevo' : 'Crea tu PIN'
+  if (mode.value === 'confirm') return 'Confirma tu PIN'
+  return firstName.value ? `Hola, ${firstName.value}` : 'Hola de nuevo'
+})
 
-async function detectMode() {
-  mode.value = 'loading'
-  error.value = ''
-  try {
-    mode.value = (await isPinConfigured()) ? 'login' : 'setup'
-  } catch {
-    error.value = 'No se pudo conectar con el servidor. Revisa tu conexión.'
-    mode.value = 'error'
-  }
-}
+const hint = computed(() => {
+  if (busy.value) return 'Verificando…'
+  if (mode.value === 'create') return `${PIN_LENGTH} dígitos para abrir la app. Te lo pediremos cada vez que entres.`
+  if (mode.value === 'confirm') return 'Escríbelo otra vez para confirmarlo.'
+  return `Ingresa tu PIN de ${PIN_LENGTH} dígitos`
+})
 
-function restartSetup() {
+function restart() {
   firstPin.value = ''
   error.value = ''
-  mode.value = 'setup'
+  mode.value = 'create'
 }
 
 function startLock() {
@@ -100,7 +94,7 @@ function startLock() {
     if (lockedFor.value <= 0 && lockTimer) {
       clearInterval(lockTimer)
       lockTimer = null
-      failedAttempts.value = 0
+      failed.value = 0
       error.value = ''
     }
   }, 1000)
@@ -109,7 +103,7 @@ function startLock() {
 async function onComplete(pin: string) {
   error.value = ''
 
-  if (mode.value === 'setup') {
+  if (mode.value === 'create') {
     firstPin.value = pin
     mode.value = 'confirm'
     return
@@ -119,94 +113,31 @@ async function onComplete(pin: string) {
   try {
     if (mode.value === 'confirm') {
       if (pin !== firstPin.value) {
-        restartSetup()
+        restart()
         error.value = 'Los PIN no coinciden. Créalo de nuevo'
         return
       }
-      await setupPin(pin)
+      await setLockPin(pin)
     } else {
-      await loginWithPin(pin)
+      await unlockWithPin(pin)
     }
-    // Al iniciar sesión, App.vue cambia a la aplicación
+    // App.vue abre la app al quedar desbloqueada
   } catch (e) {
     pad.value?.reset()
-    error.value = pinErrorMessage(e)
-    if (mode.value === 'login') {
-      failedAttempts.value++
-      if (failedAttempts.value >= MAX_ATTEMPTS) startLock()
+    error.value = authErrorMessage(e)
+    if (mode.value === 'unlock') {
+      failed.value++
+      if (failed.value >= MAX_ATTEMPTS) startLock()
     }
-    if ((e as { code?: string })?.code === 'auth/email-already-in-use') mode.value = 'login'
   } finally {
     busy.value = false
   }
 }
 
-onMounted(detectMode)
+// Se cierra la sesión: al volver a entrar con la contraseña o Google se crea uno nuevo
+async function forgot() {
+  await forgotPin()
+}
+
 onBeforeUnmount(() => lockTimer && clearInterval(lockTimer))
 </script>
-
-<style scoped>
-.pin-screen {
-  min-height: 100vh;
-  min-height: 100dvh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: calc(24px + env(safe-area-inset-top)) 16px calc(24px + env(safe-area-inset-bottom));
-  background:
-    radial-gradient(circle at 50% 0%, rgba(74, 158, 255, 0.12), transparent 60%),
-    var(--bg-base);
-}
-
-.pin-card {
-  width: 100%;
-  max-width: 360px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-}
-
-.pin-logo {
-  width: 64px;
-  height: auto;
-  margin-bottom: 20px;
-}
-
-.pin-title {
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin-bottom: 6px;
-}
-
-.pin-subtitle {
-  font-size: 14px;
-  color: var(--text-secondary);
-  margin-bottom: 28px;
-  max-width: 280px;
-}
-
-.pin-link,
-.pin-retry {
-  margin-top: 20px;
-  background: none;
-  border: none;
-  color: var(--accent-blue);
-  font-size: 14px;
-  cursor: pointer;
-}
-
-.pin-version {
-  margin-top: 28px;
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-.pin-retry {
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 10px 20px;
-  color: var(--text-primary);
-}
-</style>

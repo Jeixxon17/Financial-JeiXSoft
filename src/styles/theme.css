@@ -1,0 +1,180 @@
+/*
+ * TuPlataAlDia (v2) — design system como tema de Tailwind 4.
+ * Fuente de verdad: design/design-system/project/tokens.json.
+ * Los nombres no chocan con las variables de la v1 (--bg-base, --border…):
+ * Tailwind los guarda como --color-*, --radius-*, --shadow-*, --animate-*.
+ *
+ * Uso: bg-bg-base, bg-surface-100/200/300, border-line, text-ink,
+ * text-ink-muted, bg-primary, text-accent-light, rounded-card, shadow-float…
+ */
+
+@theme {
+  --font-sans: Manrope, 'SF Pro Display', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* Tema Noche */
+  --color-bg-base: #05070f;
+  --color-bg-glow: #1b2a5e;
+  --color-surface-100: #111a31;
+  --color-surface-200: #1a2441;
+  --color-surface-300: #253157;
+  --color-line: #26314f;
+  --color-line-strong: #5d6b96;
+  --color-ink: #f4f6fc;
+  --color-ink-muted: #a6b0c9;
+  --color-ink-faint: #8a95b1;
+  --color-on-inverse: #0e1530;
+  --color-primary: #4f6fdc;
+  --color-primary-hover: #5f7fe8;
+  --color-primary-soft: #202f61;
+  --color-accent-glow: #3c63f2;
+  --color-accent-light: #b9cbff;
+  --color-card: #0d1636;
+  --color-card-ink: #f4f6fc;
+  --color-card-ink-muted: #b4bfdc;
+  --color-chip-gold: #e9b949;
+  --color-success: #4ade96;
+  --color-danger: #ff7a88;
+  --color-warning: #f5bd4f;
+  /* Gráficos (validados con el validador de dataviz sobre surface-100, modo oscuro) */
+  --color-chart-income: #22a465;
+  --color-chart-expense: #5f7fe8;
+
+  /* Radios propios (no se tocan los rounded-sm/md/lg de Tailwind que usa la v1) */
+  --radius-chip: 8px;
+  --radius-tile: 14px;
+  --radius-card: 20px;
+  --radius-sheet: 28px;
+
+  --shadow-card: 0 18px 40px rgba(3, 8, 28, 0.55);
+  --shadow-float: 0 12px 30px rgba(0, 0, 0, 0.5);
+  --shadow-icon: 0 12px 40px rgba(60, 99, 242, 0.35);
+
+  /* Animaciones */
+  --animate-shine: shine 4.5s ease-in-out infinite;
+  --animate-card-in: card-in 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-sheet-in: sheet-in 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-shake: shake 0.4s ease;
+  --animate-breathe: breathe 3s ease-in-out infinite;
+  --animate-shimmer: shimmer 1.4s ease-in-out infinite;
+  --animate-fade-in: fade-in 0.2s ease both;
+  --animate-modal-in: modal-in 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  /* Éxito: el disco aparece, el chulo se dibuja y una onda sale alrededor */
+  --animate-pop: pop 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  --animate-draw: draw 0.5s 0.35s ease forwards;
+  --animate-ring: ring 1.8s ease-out infinite;
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes modal-in {
+    from { opacity: 0; transform: translateY(12px) scale(0.97); }
+    to { opacity: 1; transform: none; }
+  }
+
+  @keyframes pop {
+    0% { transform: scale(0.4); opacity: 0; }
+    70% { transform: scale(1.08); opacity: 1; }
+    100% { transform: scale(1); }
+  }
+
+  @keyframes draw {
+    to { stroke-dashoffset: 0; }
+  }
+
+  @keyframes ring {
+    0% { transform: scale(0.8); opacity: 0.6; }
+    100% { transform: scale(1.6); opacity: 0; }
+  }
+
+  @keyframes shimmer {
+    from { background-position: 200% 0; }
+    to { background-position: -200% 0; }
+  }
+
+  @keyframes shine {
+    0% { transform: translateX(-120%) skewX(-20deg); }
+    60%, 100% { transform: translateX(260%) skewX(-20deg); }
+  }
+
+  @keyframes card-in {
+    from { opacity: 0; transform: translateY(24px) scale(0.96) rotateX(12deg); }
+    to { opacity: 1; transform: none; }
+  }
+
+  @keyframes sheet-in {
+    from { transform: translateY(100%); }
+    to { transform: none; }
+  }
+
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-8px); }
+    75% { transform: translateX(8px); }
+  }
+
+  @keyframes breathe {
+    0%, 100% { border-color: var(--color-line-strong); }
+    50% { border-color: var(--color-accent-light); }
+  }
+}
+
+/* Fondos con degradados del design system (muy largos para escribirlos como clase arbitraria) */
+
+/* Pantalla: resplandor azul arriba que se apaga hacia el fondo */
+@utility bg-screen {
+  background:
+    radial-gradient(120% 55% at 50% -5%, var(--color-bg-glow) 0%, transparent 70%),
+    var(--color-bg-base);
+}
+
+/* Escritorio: resplandor más ancho */
+@utility bg-desk {
+  background:
+    radial-gradient(70% 40% at 60% -10%, var(--color-bg-glow) 0%, transparent 70%),
+    var(--color-bg-base);
+}
+
+/* Tarjeta bancaria: azul noche. La mancha de luz con el color de cada banco la pinta BankCardFace */
+@utility bg-bank-card {
+  background:
+    radial-gradient(40% 50% at 100% 0%, var(--color-primary-soft) 0%, transparent 70%),
+    var(--color-card);
+}
+
+/* Skeleton loader: bloque gris azulado con un brillo que lo recorre mientras carga Firebase.
+   El tamaño, la forma (rounded-*) y el display los pone quien lo usa. */
+@utility skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-200) 25%,
+    var(--color-surface-300) 50%,
+    var(--color-surface-200) 75%
+  );
+  background-size: 200% 100%;
+  animation: var(--animate-shimmer);
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+/* Brillo que cruza la tarjeta */
+@utility shine {
+  &::after {
+    content: '';
+    position: absolute;
+    top: -20%;
+    bottom: -20%;
+    left: 0;
+    width: 35%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.16), transparent);
+    animation: var(--animate-shine);
+    pointer-events: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &::after { animation: none; }
+  }
+}

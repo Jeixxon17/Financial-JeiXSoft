@@ -21,6 +21,7 @@ public class PendingStore {
     private static final String KEY_API_KEY = "apiKey";
     private static final String KEY_PROJECT_ID = "projectId";
     private static final String KEY_REFRESH_TOKEN = "refreshToken";
+    private static final String KEY_COLLECTION_PATH = "collectionPath";
     private static final int MAX_UPLOADED_IDS = 500;
 
     private static PendingStore shared;
@@ -104,12 +105,18 @@ public class PendingStore {
 
     // --- Sesión ---
 
-    public synchronized void saveSession(String apiKey, String projectId, String refreshToken) {
+    public synchronized void saveSession(String apiKey, String projectId, String refreshToken, String collectionPath) {
         prefs.edit()
             .putString(KEY_API_KEY, apiKey)
             .putString(KEY_PROJECT_ID, projectId)
             .putString(KEY_REFRESH_TOKEN, refreshToken)
+            .putString(KEY_COLLECTION_PATH, collectionPath)
             .apply();
+    }
+
+    // Dónde se suben las notificaciones (users/{uid}/pendingTransactions o la general)
+    public String getCollectionPath() {
+        return prefs.getString(KEY_COLLECTION_PATH, "pendingTransactions");
     }
 
     public synchronized void updateRefreshToken(String refreshToken) {

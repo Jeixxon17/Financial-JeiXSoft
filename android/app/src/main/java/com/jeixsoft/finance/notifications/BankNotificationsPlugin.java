@@ -86,7 +86,9 @@ public class BankNotificationsPlugin extends Plugin {
             call.reject("Faltan datos de sesión");
             return;
         }
-        PendingStore.get(getContext()).saveSession(apiKey, projectId, refreshToken);
+        // Colección del usuario (users/{uid}/pendingTransactions); sin ella, la general de la v1
+        String collectionPath = call.getString("collectionPath", "pendingTransactions");
+        PendingStore.get(getContext()).saveSession(apiKey, projectId, refreshToken, collectionPath);
         UploadWorker.uploadNow(getContext());
         call.resolve();
     }

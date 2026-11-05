@@ -1,180 +1,181 @@
 <template>
-  <Teleport to="body">
-    <div class="modal-backdrop" @click.self="!busy && $emit('close')">
-      <div class="modal">
-        <div class="modal-header">
-          <div>
-            <h2>Subir extracto</h2>
-            <p class="subtitle">{{ account.icon }} {{ account.name }}</p>
-          </div>
-          <button class="modal-close" :disabled="busy" @click="$emit('close')">✕</button>
-        </div>
+  <!-- Subir el extracto en PDF: se lee en el dispositivo, se cruza con la app y se cuadra la deuda -->
+  <TpSheet :title="`Subir extracto de ${account.name}`" :wide="step === 'review'" @close="!busy && $emit('close')">
+    <!-- Pasos -->
+    <div class="flex gap-1.5" aria-hidden="true">
+      <span v-for="(s, i) in ['file', 'review', 'done']" :key="s" class="h-1 flex-1 rounded-full" :class="stepIndex >= i ? 'bg-accent-light' : 'bg-surface-300'" />
+    </div>
 
-        <!-- 1. Archivo y contraseña -->
-        <div v-if="step === 'file'" class="modal-body">
-          <label class="file-drop" :class="{ selected: !!file }">
-            <input type="file" accept="application/pdf" @change="onFile" />
-            <span class="file-icon">📄</span>
-            <strong>{{ file ? file.name : 'Elegir el PDF del extracto' }}</strong>
-            <small>{{ file ? 'Toca para cambiarlo' : 'El extracto que descargas de la app del banco' }}</small>
-          </label>
+    <!-- 1. Archivo y contraseña -->
+    <template v-if="step === 'file'">
+      <label
+        class="flex cursor-pointer flex-col items-center gap-2 rounded-card border-[1.5px] border-dashed px-4 py-7 text-center transition-colors"
+        :class="file ? 'border-primary bg-primary-soft' : 'border-line-strong bg-surface-200/40 hover:border-accent-light'"
+      >
+        <input type="file" accept="application/pdf" class="sr-only" @change="onFile" />
+        <span class="grid grid-cols-[minmax(0,1fr)] size-12 place-items-center rounded-full bg-surface-200 text-accent-light [&_svg]:size-6">
+          <FileText :stroke-width="1.75" aria-hidden="true" />
+        </span>
+        <strong class="text-[15px] font-semibold">{{ file ? file.name : 'Elige el PDF del extracto' }}</strong>
+        <small class="text-[13px] text-ink-muted">{{ file ? 'Toca para cambiarlo' : 'El que descargas de la app del banco' }}</small>
+      </label>
 
-          <div class="form-group">
-            <label>Contraseña del PDF (si tiene)</label>
-            <input
-              v-model="password"
-              type="password"
-              autocomplete="off"
-              placeholder="Normalmente tu número de documento"
-              @keydown.enter="read"
-            />
-            <small class="hint">El PDF y la contraseña solo se usan en este dispositivo: no se guardan ni se envían.</small>
-          </div>
+      <label class="flex flex-col gap-1.5">
+        <span :class="fieldLabel">Contraseña del PDF (si tiene)</span>
+        <input
+          v-model="password"
+          type="password"
+          autocomplete="off"
+          :class="fieldInput"
+          placeholder="Normalmente tu número de documento"
+          @keydown.enter="read"
+        />
+        <small class="flex items-center gap-1.5 text-xs text-ink-faint [&_svg]:size-3.5">
+          <LockKeyhole :stroke-width="1.75" aria-hidden="true" />
+          El PDF y la contraseña solo se usan en este dispositivo: no se guardan ni se envían.
+        </small>
+      </label>
 
-          <p v-if="error" class="error">{{ error }}</p>
-        </div>
+      <p v-if="error" class="m-0 text-sm text-danger">{{ error }}</p>
+    </template>
 
-        <!-- 2. Revisión -->
-        <div v-else-if="step === 'review' && statement" class="modal-body">
-          <div class="summary">
-            <div><span>Corte</span><strong>{{ formatDate(billingCutoff) }}</strong></div>
-            <div><span>Fecha límite</span><strong>{{ formatDate(statement.dueDate) }}</strong></div>
-            <div><span>Pago mínimo</span><strong>{{ formatCurrency(statement.minimumPayment) }}</strong></div>
-            <div>
-              <span>Deuda al {{ statement.debtIncludesUnbilled ? formatDate(statement.cutoffDate) : 'corte' }}</span>
-              <strong>{{ formatCurrency(statement.totalDebt) }}</strong>
-            </div>
-          </div>
-
-          <!-- Nuevos -->
-          <section v-if="newRows.length">
-            <h3>🆕 No están en la app ({{ newRows.length }})</h3>
-            <div v-for="row in newRows" :key="row.key" class="row" :class="{ off: !row.include }">
-              <label class="row-main">
-                <input v-model="row.include" type="checkbox" />
-                <span class="row-info">
-                  <strong>{{ row.movement.description }}</strong>
-                  <small>
-                    {{ formatDate(row.movement.date) }}
-                    <template v-if="row.movement.installments > 1">
-                      · {{ row.movement.installments }} cuotas
-                      <template v-if="row.movement.interestRate">· {{ row.movement.interestRate }}% mes</template>
-                    </template>
-                    <template v-if="row.movement.previous"> · periodo anterior</template>
-                  </small>
-                </span>
-                <span class="row-amount" :class="row.movement.kind === 'payment' ? 'income' : 'expense'">
-                  {{ row.movement.kind === 'payment' ? '+' : '-' }}{{ formatCurrency(row.movement.amount) }}
-                </span>
-              </label>
-
-              <div v-if="row.include && row.movement.kind === 'purchase'" class="row-extra">
-                <CategorySelect v-model="row.category" type="expense" />
-              </div>
-              <div v-if="row.include && row.movement.kind === 'payment'" class="row-extra">
-                <label class="inline-label">Pagado desde</label>
-                <select v-model="row.sourceAccountId">
-                  <option v-for="acc in sourceAccounts" :key="acc.id" :value="acc.id">
-                    {{ acc.icon }} {{ acc.name }}
-                  </option>
-                </select>
-              </div>
-            </div>
-          </section>
-
-          <!-- Créditos de los que el extracto solo trae la cuota del mes (ADDI) -->
-          <section v-if="previousCredits.length">
-            <h3>📋 Créditos con interés ({{ previousCredits.length }})</h3>
-            <p class="hint">
-              El extracto no dice su valor ni sus cuotas: su saldo queda en la deuda sin detalle y se factura
-              {{ formatCurrency(previousMonthly) }} al mes (lo que cobran de capital).
-            </p>
-            <div v-for="credit in previousCredits" :key="credit.date + credit.description" class="row row-main">
-              <span class="row-info">
-                <strong>{{ credit.description }}</strong>
-                <small>
-                  {{ formatDate(credit.date) }} · {{ credit.interestRate }}% mes
-                  <template v-if="isSeparate(credit)"> · es el {{ separateDebt!.description }} (va aparte)</template>
-                </small>
-              </span>
-              <span class="row-amount">{{ formatCurrency(credit.monthlyCapital) }}/mes</span>
-            </div>
-          </section>
-
-          <!-- En la app pero no en el extracto -->
-          <section v-if="extraTxs.length">
-            <h3>⚠️ En la app pero no en el extracto ({{ extraTxs.length }})</h3>
-            <p class="hint">Pueden ser ajustes tuyos o compras que el banco cobra en otro corte. Solo se quitan si los marcas.</p>
-            <label v-for="tx in extraTxs" :key="tx.id" class="row row-main" :class="{ off: !removeIds.has(tx.id) }">
-              <input type="checkbox" :checked="removeIds.has(tx.id)" @change="toggleRemove(tx.id)" />
-              <span class="row-info">
-                <strong>{{ tx.description || 'Sin descripción' }}</strong>
-                <small>{{ formatDate(tx.date) }} · {{ removeIds.has(tx.id) ? 'se quitará' : 'se deja' }}</small>
-              </span>
-              <span class="row-amount" :class="tx.type">{{ formatCurrency(tx.amount) }}</span>
-            </label>
-          </section>
-
-          <p v-if="nextPeriodTxs.length" class="hint">
-            📅 {{ nextPeriodTxs.length }} movimiento(s) desde el {{ formatDate(billingCutoff) }} irán en el siguiente extracto
-            ({{ nextPeriodTxs.map(t => t.description || 'sin descripción').join(', ') }}).
-          </p>
-
-          <!-- Ya registrados -->
-          <details v-if="matchedRows.length" class="matched">
-            <summary>✅ Ya registrados ({{ matchedRows.length }})</summary>
-            <div v-for="row in matchedRows" :key="row.key" class="row row-main">
-              <span class="row-info">
-                <strong>{{ row.movement.description }}</strong>
-                <small>En la app: {{ row.match?.description || 'sin descripción' }} · {{ formatDate(row.match!.date) }}</small>
-              </span>
-              <span class="row-amount">{{ formatCurrency(row.movement.amount) }}</span>
-            </div>
-          </details>
-
-          <div class="reconcile">
-            <p>
-              Deuda en la app al {{ formatDate(statement.cutoffDate) }}: <strong>{{ formatCurrency(debtBefore) }}</strong>
-            </p>
-            <p class="hint">
-              Al aplicar, la deuda al corte queda en {{ formatCurrency(statement.totalDebt) }} (el saldo sin detalle se ajusta
-              solo) y el pago mínimo en {{ formatCurrency(statement.minimumPayment) }}.
-            </p>
-          </div>
-
-          <p v-if="error" class="error">{{ error }}</p>
-        </div>
-
-        <!-- 3. Listo -->
-        <div v-else-if="step === 'done'" class="modal-body done">
-          <span>✅</span>
-          <h3>Extracto aplicado</h3>
-          <p>{{ resultText }}</p>
-        </div>
-
-        <div class="modal-footer">
-          <template v-if="step === 'file'">
-            <button class="btn-cancel" @click="$emit('close')">Cancelar</button>
-            <button class="btn-save" :disabled="!file || busy" @click="read">
-              {{ busy ? 'Leyendo...' : 'Leer extracto' }}
-            </button>
-          </template>
-          <template v-else-if="step === 'review'">
-            <button class="btn-cancel" :disabled="busy" @click="step = 'file'">Atrás</button>
-            <button class="btn-save" :disabled="busy" @click="apply">
-              {{ busy ? 'Aplicando...' : 'Aplicar extracto' }}
-            </button>
-          </template>
-          <button v-else class="btn-save" @click="$emit('close')">Listo</button>
+    <!-- 2. Revisión -->
+    <template v-else-if="step === 'review' && statement">
+      <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div v-for="item in summary" :key="item.label" class="flex flex-col gap-0.5 rounded-tile bg-surface-200 px-3 py-2.5">
+          <span class="text-[11px]/[14px] text-ink-faint">{{ item.label }}</span>
+          <strong class="text-sm font-semibold tabular-nums">{{ item.value }}</strong>
         </div>
       </div>
-    </div>
-  </Teleport>
-</template>
 
+      <!-- Nuevos -->
+      <section v-if="newRows.length" class="flex flex-col gap-2">
+        <h3 :class="sectionTitle">No están en la app ({{ newRows.length }})</h3>
+        <div v-for="row in newRows" :key="row.key" class="flex flex-col gap-2 rounded-tile border border-line bg-surface-200/40 p-3" :class="{ 'opacity-60': !row.include }">
+          <label class="flex cursor-pointer items-center gap-3">
+            <input v-model="row.include" type="checkbox" class="size-4 shrink-0 accent-primary" />
+            <span class="flex min-w-0 flex-1 flex-col">
+              <strong class="truncate text-sm font-semibold">{{ row.movement.description }}</strong>
+              <small class="text-xs text-ink-faint">
+                {{ formatDate(row.movement.date) }}
+                <template v-if="row.movement.installments > 1">
+                  · {{ row.movement.installments }} cuotas
+                  <template v-if="row.movement.interestRate">· {{ row.movement.interestRate }} % mes</template>
+                </template>
+                <template v-if="row.movement.previous"> · periodo anterior</template>
+              </small>
+            </span>
+            <span class="text-sm font-semibold whitespace-nowrap tabular-nums" :class="{ 'text-success': row.movement.kind === 'payment' }">
+              {{ row.movement.kind === 'payment' ? '+' : '−' }}{{ formatCurrency(row.movement.amount) }}
+            </span>
+          </label>
+          <TpCategorySelect v-if="row.include && row.movement.kind === 'purchase'" v-model="row.category" type="expense" />
+          <label v-if="row.include && row.movement.kind === 'payment'" class="flex flex-col gap-1.5">
+            <span :class="fieldLabel">Pagado desde</span>
+            <select v-model="row.sourceAccountId" :class="fieldInput">
+              <option v-for="acc in sourceAccounts" :key="acc.id" :value="acc.id">{{ acc.name }}</option>
+            </select>
+          </label>
+        </div>
+      </section>
+
+      <!-- Créditos de los que el extracto solo trae la cuota del mes (ADDI) -->
+      <section v-if="previousCredits.length" class="flex flex-col gap-2">
+        <h3 :class="sectionTitle">Créditos con interés ({{ previousCredits.length }})</h3>
+        <p class="m-0 text-[13px]/[19px] text-ink-muted">
+          El extracto no dice su valor ni sus cuotas: su saldo queda en la deuda sin detalle y se factura
+          {{ formatCurrency(previousMonthly) }} al mes (lo que cobran de capital).
+        </p>
+        <div v-for="credit in previousCredits" :key="credit.date + credit.description" class="flex items-center gap-3 rounded-tile bg-surface-200/40 px-3 py-2.5">
+          <span class="flex min-w-0 flex-1 flex-col">
+            <strong class="truncate text-sm font-semibold">{{ credit.description }}</strong>
+            <small class="text-xs text-ink-faint">
+              {{ formatDate(credit.date) }} · {{ credit.interestRate }} % mes
+              <template v-if="isSeparate(credit)"> · es el {{ separateDebt!.description }} (va aparte)</template>
+            </small>
+          </span>
+          <span class="text-sm font-semibold whitespace-nowrap tabular-nums">{{ formatCurrency(credit.monthlyCapital) }}/mes</span>
+        </div>
+      </section>
+
+      <!-- En la app pero no en el extracto -->
+      <section v-if="extraTxs.length" class="flex flex-col gap-2">
+        <h3 :class="sectionTitle">En la app pero no en el extracto ({{ extraTxs.length }})</h3>
+        <p class="m-0 text-[13px]/[19px] text-ink-muted">Pueden ser ajustes tuyos o compras de otro corte. Solo se quitan si los marcas.</p>
+        <label v-for="tx in extraTxs" :key="tx.id" class="flex cursor-pointer items-center gap-3 rounded-tile bg-surface-200/40 px-3 py-2.5" :class="{ 'opacity-60': !removeIds.has(tx.id) }">
+          <input type="checkbox" class="size-4 shrink-0 accent-primary" :checked="removeIds.has(tx.id)" @change="toggleRemove(tx.id)" />
+          <span class="flex min-w-0 flex-1 flex-col">
+            <strong class="truncate text-sm font-semibold">{{ tx.description || 'Sin descripción' }}</strong>
+            <small class="text-xs text-ink-faint">{{ formatDate(tx.date) }} · {{ removeIds.has(tx.id) ? 'se quitará' : 'se deja' }}</small>
+          </span>
+          <span class="text-sm font-semibold whitespace-nowrap tabular-nums">{{ formatCurrency(tx.amount) }}</span>
+        </label>
+      </section>
+
+      <p v-if="nextPeriodTxs.length" class="m-0 text-[13px]/[19px] text-ink-muted">
+        {{ nextPeriodTxs.length }} movimiento(s) desde el {{ formatDate(billingCutoff) }} irán en el siguiente extracto
+        ({{ nextPeriodTxs.map(t => t.description || 'sin descripción').join(', ') }}).
+      </p>
+
+      <!-- Ya registrados -->
+      <details v-if="matchedRows.length" class="group">
+        <summary class="cursor-pointer list-none text-sm font-semibold text-success">Ya registrados ({{ matchedRows.length }})</summary>
+        <div class="mt-2 flex flex-col gap-1.5">
+          <div v-for="row in matchedRows" :key="row.key" class="flex items-center gap-3 rounded-tile bg-surface-200/40 px-3 py-2">
+            <span class="flex min-w-0 flex-1 flex-col">
+              <strong class="truncate text-sm font-semibold">{{ row.movement.description }}</strong>
+              <small class="text-xs text-ink-faint">En la app: {{ row.match?.description || 'sin descripción' }} · {{ formatDate(row.match!.date) }}</small>
+            </span>
+            <span class="text-sm tabular-nums">{{ formatCurrency(row.movement.amount) }}</span>
+          </div>
+        </div>
+      </details>
+
+      <div class="rounded-tile border border-line bg-surface-200/40 px-4 py-3 text-sm">
+        <p class="m-0">Deuda en la app al {{ formatDate(statement.cutoffDate) }}: <strong class="tabular-nums">{{ formatCurrency(debtBefore) }}</strong></p>
+        <p class="mt-1 mb-0 text-[13px]/[19px] text-ink-muted">
+          Al aplicar, la deuda al corte queda en {{ formatCurrency(statement.totalDebt) }} (el saldo sin detalle se ajusta solo) y el
+          pago mínimo en {{ formatCurrency(statement.minimumPayment) }}.
+        </p>
+      </div>
+
+      <p v-if="error" class="m-0 text-sm text-danger">{{ error }}</p>
+    </template>
+
+    <!-- 3. Listo -->
+    <div v-else-if="step === 'done'" class="flex flex-col items-center gap-3 py-2 text-center">
+      <div class="relative grid size-28 place-items-center">
+        <span class="absolute inset-0 animate-ring rounded-full border-2 border-accent-light motion-reduce:animate-none" />
+        <span class="grid grid-cols-[minmax(0,1fr)] size-24 animate-pop place-items-center rounded-full bg-linear-135 from-accent-light to-primary shadow-card motion-reduce:animate-none">
+          <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M5 12.5l4.5 4.5L19 7.5" class="animate-draw [stroke-dasharray:60] [stroke-dashoffset:60] motion-reduce:animate-none motion-reduce:[stroke-dashoffset:0]" />
+          </svg>
+        </span>
+      </div>
+      <h3 class="m-0 font-sans text-2xl/[30px] font-semibold">{{ account.name }} quedó cuadrada</h3>
+      <p class="m-0 text-sm text-ink-muted">{{ resultText }}</p>
+    </div>
+
+    <template #footer>
+      <template v-if="step === 'file'">
+        <div class="hidden lg:block"><TpButton variant="ghost" @click="$emit('close')">Cancelar</TpButton></div>
+        <TpButton block class="lg:w-auto lg:min-w-40" :disabled="!file || busy" @click="read">{{ busy ? 'Leyendo…' : 'Leer extracto' }}</TpButton>
+      </template>
+      <template v-else-if="step === 'review'">
+        <TpButton variant="secondary" :disabled="busy" @click="step = 'file'">Atrás</TpButton>
+        <TpButton block class="lg:w-auto lg:min-w-44" :disabled="busy" @click="apply">{{ busy ? 'Aplicando…' : 'Aplicar extracto' }}</TpButton>
+      </template>
+      <TpButton v-else block class="lg:w-auto lg:min-w-40" @click="$emit('close')">Listo</TpButton>
+    </template>
+  </TpSheet>
+</template>
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
-import CategorySelect from '@/components/CategorySelect.vue'
+import { FileText, LockKeyhole } from 'lucide-vue-next'
+import TpSheet from '@/components/tp/TpSheet.vue'
+import TpButton from '@/components/tp/TpButton.vue'
+import TpCategorySelect from '@/components/tp/TpCategorySelect.vue'
+import { fieldInput, fieldLabel } from '@/components/tp/format'
 import { useFinanceStore } from '@/stores/finance'
 import { createTransactionService } from '@/services/transaction.service'
 import { formatCurrency, formatDate } from '@/utils/formatters'
@@ -205,6 +206,19 @@ const nextPeriodTxs = ref<Transaction[]>([])
 const removeIds = reactive(new Set<string>())
 const debtBefore = ref(0)
 const resultText = ref('')
+
+const sectionTitle = 'm-0 font-sans text-[15px]/5 font-semibold'
+const stepIndex = computed(() => ['file', 'review', 'done'].indexOf(step.value))
+const summary = computed(() => {
+  const st = statement.value
+  if (!st) return []
+  return [
+    { label: 'Corte', value: formatDate(billingCutoff.value) },
+    { label: 'Fecha límite', value: formatDate(st.dueDate) },
+    { label: 'Pago mínimo', value: formatCurrency(st.minimumPayment) },
+    { label: st.debtIncludesUnbilled ? `Deuda al ${formatDate(st.cutoffDate)}` : 'Deuda al corte', value: formatCurrency(st.totalDebt) }
+  ]
+})
 
 const newRows = computed(() => rows.value.filter(r => r.status === 'new'))
 const matchedRows = computed(() => rows.value.filter(r => r.status === 'matched'))
@@ -387,224 +401,3 @@ async function apply() {
   }
 }
 </script>
-
-<style scoped>
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(4px);
-}
-
-.modal {
-  width: 100%;
-  max-width: 600px;
-  max-height: calc(100dvh - 32px);
-  display: flex;
-  flex-direction: column;
-  border-radius: 20px;
-  border: 1px solid var(--border);
-  background: var(--bg-surface);
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  padding: 20px 20px 0;
-}
-
-.modal-header h2 { font-size: 19px; color: var(--text-primary); }
-.subtitle { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
-
-.modal-close {
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  font-size: 16px;
-  cursor: pointer;
-}
-
-.modal-body {
-  padding: 18px 20px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  padding: 0 20px 20px;
-}
-
-.file-drop {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 22px 16px;
-  border: 1.5px dashed var(--border-light);
-  border-radius: 14px;
-  text-align: center;
-  cursor: pointer;
-  color: var(--text-primary);
-}
-
-.file-drop.selected { border-color: var(--accent-green); }
-.file-drop input { display: none; }
-.file-icon { font-size: 30px; }
-.file-drop strong { font-size: 14px; overflow-wrap: anywhere; }
-.file-drop small { font-size: 12px; color: var(--text-muted); }
-
-.form-group { display: flex; flex-direction: column; gap: 6px; }
-
-.form-group label,
-.inline-label {
-  font-size: 11px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.form-group input,
-.row-extra select {
-  width: 100%;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 10px 12px;
-  color: var(--text-primary);
-  font-size: 14px;
-}
-
-.hint { font-size: 12px; color: var(--text-muted); }
-.error { font-size: 13px; color: var(--accent-red); }
-
-.summary {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
-.summary div {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: var(--bg-elevated);
-}
-
-.summary span { font-size: 11px; color: var(--text-muted); }
-.summary strong { font-family: 'JetBrains Mono', monospace; font-size: 14px; color: var(--text-primary); }
-
-section { display: flex; flex-direction: column; gap: 8px; }
-section h3, .matched summary { font-size: 14px; color: var(--text-primary); }
-
-.row {
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background: var(--bg-card);
-  padding: 10px 12px;
-}
-
-.row.off { opacity: 0.55; }
-
-.row-main {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  cursor: pointer;
-}
-
-.row-main input[type='checkbox'] {
-  flex-shrink: 0;
-  width: 16px;
-  height: 16px;
-  accent-color: var(--accent-green);
-}
-
-.row-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-
-.row-info strong {
-  font-size: 13px;
-  color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.row-info small { font-size: 11px; color: var(--text-muted); }
-
-.row-amount {
-  flex-shrink: 0;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 13px;
-  color: var(--text-primary);
-}
-
-.row-amount.income { color: var(--accent-green); }
-.row-amount.expense { color: var(--accent-red); }
-
-.row-extra {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-top: 8px;
-  padding-left: 26px;
-}
-
-.matched { display: flex; flex-direction: column; gap: 8px; }
-.matched summary { cursor: pointer; margin-bottom: 8px; }
-.matched .row { margin-bottom: 6px; }
-
-.reconcile {
-  padding: 12px;
-  border-radius: 12px;
-  background: var(--bg-elevated);
-  font-size: 13px;
-  color: var(--text-secondary);
-}
-
-.reconcile strong { color: var(--text-primary); }
-
-.done {
-  align-items: center;
-  text-align: center;
-  color: var(--text-primary);
-}
-
-.done span { font-size: 40px; }
-
-.btn-cancel,
-.btn-save {
-  padding: 10px 18px;
-  border-radius: 10px;
-  font-size: 14px;
-  cursor: pointer;
-}
-
-.btn-cancel {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  color: var(--text-secondary);
-}
-
-.btn-save {
-  border: none;
-  background: linear-gradient(135deg, var(--accent-green), #00b377);
-  color: #000;
-  font-weight: 600;
-}
-
-.btn-save:disabled,
-.btn-cancel:disabled { opacity: 0.5; cursor: default; }
-</style>

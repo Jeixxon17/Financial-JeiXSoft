@@ -1,6 +1,8 @@
 export interface Account {
   id: string
   name: string
+  // Banco del catálogo (components/tp/banks.ts); vacío = otro
+  bank?: string
   type: 'debit' | 'credit' | 'savings' | 'cash'
   balance: number
   color: string

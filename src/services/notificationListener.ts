@@ -2,7 +2,9 @@ import { Capacitor, registerPlugin } from '@capacitor/core'
 import { onIdTokenChanged } from 'firebase/auth'
 
 import { auth } from '@/firebase/config'
-import { OWNER_EMAIL } from '@/services/auth.service'
+import { watch } from 'vue'
+import { authState } from '@/services/auth.service'
+import { userCollectionPath } from '@/firebase/dataRoot'
 import type { PendingTransaction } from '@/interfaces'
 
 // Lector nativo (android/.../notifications): guarda las notificaciones de
@@ -18,7 +20,7 @@ interface BankNotificationsPlugin {
   getStatus(): Promise<NotificationStatus>
   openPermissionSettings(): Promise<void>
   requestIgnoreBatteryOptimizations(): Promise<void>
-  setSession(options: { apiKey: string; projectId: string; refreshToken: string }): Promise<void>
+  setSession(options: { apiKey: string; projectId: string; refreshToken: string; collectionPath: string }): Promise<void>
   flush(): Promise<void>
   readBankSms(options: { from: number; to: number }): Promise<{ messages: PendingTransaction[] }>
 }
@@ -30,23 +32,26 @@ export const canReadNotifications = Capacitor.getPlatform() === 'android'
 
 let watching = false
 
-// Cada vez que Firebase renueva la sesión del dueño (PIN, cambio de PIN,
-// renovación del token) se le entrega al lector nativo para subir sin abrir la app
+// Cada vez que cambia el usuario o Firebase renueva la sesión, se le entrega al
+// lector nativo (con la colección de ese usuario) para subir sin abrir la app
+function pushSession() {
+  const user = auth.currentUser
+  // El lector es del plan Completo: con el plan Gratis no se le entrega la sesión
+  if (!user?.refreshToken || !authState.ready || authState.plan !== 'completo') return
+  BankNotifications.setSession({
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+    refreshToken: user.refreshToken,
+    collectionPath: userCollectionPath('pendingTransactions')
+  }).catch(error => console.error('Error guardando sesión de notificaciones', error))
+}
+
 export function watchNotificationSession() {
   if (!canReadNotifications || watching) return
   watching = true
-
-  onIdTokenChanged(auth, user => {
-    if (user?.email !== OWNER_EMAIL || !user.refreshToken) return
-
-    BankNotifications.setSession({
-      apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-      projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-      refreshToken: user.refreshToken
-    }).catch(error => console.error('Error guardando sesión de notificaciones', error))
-  })
+  onIdTokenChanged(auth, () => pushSession())
+  watch(() => [authState.ready, authState.uid, authState.legacy, authState.plan], () => pushSession())
 }
-
 export async function getNotificationStatus(): Promise<NotificationStatus | null> {
   if (!canReadNotifications) return null
   return BankNotifications.getStatus()

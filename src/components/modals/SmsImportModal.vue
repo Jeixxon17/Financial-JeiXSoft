@@ -1,81 +1,75 @@
 <template>
-  <Teleport to="body">
-    <div class="modal-backdrop" @click.self="!busy && $emit('close')">
-      <div class="modal">
-        <div class="modal-header">
-          <div>
-            <h2>Buscar SMS del banco</h2>
-            <p class="subtitle">Recupera movimientos que no llegaron a "Por confirmar"</p>
-          </div>
-          <button class="modal-close" :disabled="busy" @click="$emit('close')">✕</button>
-        </div>
+  <TpSheet title="Buscar SMS del banco" @close="!busy && $emit('close')">
+    <p class="m-0 text-sm text-ink-muted">Recupera movimientos que no llegaron a Por confirmar.</p>
 
-        <div class="modal-body">
-          <div class="form-row">
-            <div class="form-group">
-              <label>Desde</label>
-              <input v-model="from" type="date" :max="to" />
-            </div>
-            <div class="form-group">
-              <label>Hasta</label>
-              <input v-model="to" type="date" :min="from" :max="today" />
-            </div>
-          </div>
-
-          <div class="presets">
-            <button v-for="p in presets" :key="p.days" type="button" @click="setDays(p.days)">{{ p.label }}</button>
-          </div>
-
-          <p class="hint">
-            Se leen los SMS de Bancolombia que siguen en tu celular. Las notificaciones de las apps (Bancolombia, NU)
-            no se pueden recuperar: Android no las guarda.
-          </p>
-
-          <p v-if="error" class="error">{{ error }}</p>
-
-          <template v-if="searched">
-            <p v-if="!rows.length" class="hint">No hay SMS del banco entre esas fechas.</p>
-
-            <div v-else class="summary">
-              {{ rows.length }} SMS · {{ newCount }} sin registrar · {{ rows.length - newCount }} ya registrados o en espera
-            </div>
-
-            <label
-              v-for="row in rows"
-              :key="row.item.id"
-              class="row"
-              :class="{ off: !row.include, done: row.status !== 'new' }"
-            >
-              <input v-model="row.include" type="checkbox" :disabled="row.status === 'pending'" />
-              <span class="row-info">
-                <strong>{{ row.parsed.description || row.item.text.slice(0, 60) }}</strong>
-                <small>{{ formatWhen(row.item.receivedAt) }} · {{ statusText(row) }}</small>
-              </span>
-              <span class="row-amount" :class="row.parsed.type || ''">
-                {{ row.parsed.amount !== null ? `${row.parsed.type === 'income' ? '+' : '-'}${formatCurrency(row.parsed.amount)}` : '—' }}
-              </span>
-            </label>
-          </template>
-        </div>
-
-        <div class="modal-footer">
-          <button class="btn-cancel" :disabled="busy" @click="$emit('close')">Cerrar</button>
-          <button v-if="!searched || !selectedCount" class="btn-save" :disabled="busy || !from || !to" @click="search">
-            {{ busy ? 'Buscando...' : 'Buscar' }}
-          </button>
-          <button v-else class="btn-save" :disabled="busy" @click="send">
-            {{ busy ? 'Enviando...' : `Enviar a Por confirmar (${selectedCount})` }}
-          </button>
-        </div>
-      </div>
+    <div class="grid grid-cols-2 gap-3">
+      <label class="flex flex-col gap-1.5">
+        <span :class="fieldLabel">Desde</span>
+        <input v-model="from" type="date" :max="to" :class="fieldInput" />
+      </label>
+      <label class="flex flex-col gap-1.5">
+        <span :class="fieldLabel">Hasta</span>
+        <input v-model="to" type="date" :min="from" :max="today" :class="fieldInput" />
+      </label>
     </div>
-  </Teleport>
-</template>
 
+    <div class="flex flex-wrap gap-2">
+      <button
+        v-for="p in presets"
+        :key="p.days"
+        type="button"
+        class="min-h-9 cursor-pointer rounded-full border border-line bg-surface-200 px-4 text-[13px] font-medium text-ink-muted hover:text-ink"
+        @click="setDays(p.days)"
+      >
+        {{ p.label }}
+      </button>
+    </div>
+
+    <p class="m-0 text-xs/[17px] text-ink-faint">
+      Se leen los SMS de Bancolombia que siguen en tu celular. Las notificaciones de las apps no se pueden recuperar: Android no las guarda.
+    </p>
+
+    <p v-if="error" class="m-0 text-sm text-danger">{{ error }}</p>
+
+    <template v-if="searched">
+      <p v-if="!rows.length" class="m-0 text-sm text-ink-faint">No hay SMS del banco entre esas fechas.</p>
+      <p v-else class="m-0 rounded-tile bg-surface-200 px-4 py-2.5 text-[13px] text-ink-muted">
+        {{ rows.length }} SMS · {{ newCount }} sin registrar · {{ rows.length - newCount }} ya registrados o en espera
+      </p>
+      <label
+        v-for="row in rows"
+        :key="row.item.id"
+        class="flex cursor-pointer items-center gap-3 rounded-tile bg-surface-200/50 px-3 py-2.5"
+        :class="{ 'opacity-60': !row.include }"
+      >
+        <input v-model="row.include" type="checkbox" class="size-4 shrink-0 accent-primary" :disabled="row.status === 'pending'" />
+        <span class="flex min-w-0 flex-1 flex-col">
+          <strong class="truncate text-sm font-semibold">{{ row.parsed.description || row.item.text.slice(0, 60) }}</strong>
+          <small class="text-xs text-ink-faint">{{ formatWhen(row.item.receivedAt) }} · {{ statusText(row) }}</small>
+        </span>
+        <span class="text-sm font-semibold whitespace-nowrap tabular-nums" :class="{ 'text-success': row.parsed.type === 'income' }">
+          {{ row.parsed.amount !== null ? `${row.parsed.type === 'income' ? '+' : '−'}${plain(row.parsed.amount)}` : '—' }}
+        </span>
+      </label>
+    </template>
+
+    <template #footer>
+      <div class="hidden lg:block"><TpButton variant="ghost" :disabled="busy" @click="$emit('close')">Cerrar</TpButton></div>
+      <TpButton v-if="!searched || !selectedCount" block class="lg:w-auto lg:min-w-40" :disabled="busy || !from || !to" @click="search">
+        {{ busy ? 'Buscando…' : 'Buscar' }}
+      </TpButton>
+      <TpButton v-else block class="lg:w-auto lg:min-w-48" :disabled="busy" @click="send">
+        {{ busy ? 'Enviando…' : `Enviar a Por confirmar (${selectedCount})` }}
+      </TpButton>
+    </template>
+  </TpSheet>
+</template>
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useFinanceStore } from '@/stores/finance'
-import { formatCurrency } from '@/utils/formatters'
+import TpSheet from '@/components/tp/TpSheet.vue'
+import TpButton from '@/components/tp/TpButton.vue'
+import { fieldInput, fieldLabel, plain } from '@/components/tp/format'
 import { addDaysISO, daysBetween, parseISODate, toISODate, todayISO } from '@/utils/dates'
 import { parseBankNotification, type ParsedNotification } from '@/utils/bankNotifications'
 import { readBankSms } from '@/services/notificationListener'
@@ -153,7 +147,7 @@ async function search() {
   } catch (e) {
     const err = e as { code?: string; message?: string }
     error.value = err.code === 'SMS_DENIED'
-      ? 'Sin permiso para leer SMS. Actívalo en Ajustes > Apps > JeiXSoft > Permisos > SMS.'
+      ? 'Sin permiso para leer SMS. Actívalo en Ajustes > Apps > la app > Permisos > SMS.'
       : err.message || 'No se pudieron leer los SMS.'
   } finally {
     busy.value = false
@@ -186,141 +180,3 @@ function formatWhen(iso: string) {
   return new Date(iso).toLocaleString('es-CO', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
 }
 </script>
-
-<style scoped>
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(4px);
-}
-
-.modal {
-  width: 100%;
-  max-width: 560px;
-  max-height: calc(100dvh - 32px);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  border-radius: 20px;
-  border: 1px solid var(--border);
-  background: var(--bg-surface);
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  padding: 20px 20px 0;
-}
-
-.modal-header h2 { font-size: 19px; color: var(--text-primary); }
-.subtitle { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
-
-.modal-close { background: none; border: none; color: var(--text-muted); font-size: 16px; cursor: pointer; }
-
-.modal-body {
-  flex: 1;
-  min-height: 0;
-  padding: 16px 20px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.modal-footer {
-  flex-shrink: 0;
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  padding: 12px 20px 18px;
-  border-top: 1px solid var(--border);
-}
-
-.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.form-group { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
-
-.form-group label {
-  font-size: 11px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.form-group input {
-  width: 100%;
-  min-width: 0;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 10px 12px;
-  color: var(--text-primary);
-  font-size: 14px;
-  -webkit-appearance: none;
-  appearance: none;
-}
-
-.presets { display: flex; flex-wrap: wrap; gap: 6px; }
-
-.presets button {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 5px 12px;
-  color: var(--text-secondary);
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.hint { font-size: 12px; color: var(--text-muted); line-height: 1.4; }
-.error { font-size: 13px; color: var(--accent-red); }
-.summary { font-size: 13px; color: var(--text-secondary); }
-
-.row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  border: 1px solid var(--border);
-  background: var(--bg-card);
-  cursor: pointer;
-}
-
-.row.off { opacity: 0.6; }
-.row.done { border-style: dashed; }
-.row input { flex-shrink: 0; width: 16px; height: 16px; accent-color: var(--accent-green); }
-.row-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-
-.row-info strong {
-  font-size: 13px;
-  color: var(--text-primary);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.row-info small { font-size: 11px; color: var(--text-muted); }
-.row-amount { flex-shrink: 0; font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--text-primary); }
-.row-amount.income { color: var(--accent-green); }
-.row-amount.expense { color: var(--accent-red); }
-
-.btn-cancel,
-.btn-save { padding: 10px 16px; border-radius: 10px; font-size: 14px; cursor: pointer; }
-.btn-cancel { background: var(--bg-elevated); border: 1px solid var(--border); color: var(--text-secondary); }
-.btn-save { border: none; background: linear-gradient(135deg, var(--accent-green), #00b377); color: #000; font-weight: 600; }
-.btn-save:disabled,
-.btn-cancel:disabled { opacity: 0.5; cursor: default; }
-
-@media (max-width: 480px) {
-  .modal-backdrop { padding: 10px; align-items: flex-end; }
-  .modal-body { padding: 14px 16px; }
-}
-</style>

@@ -1,94 +1,162 @@
 <template>
-  <AppLayout>
-    <div class="inbox-page">
-      <!-- Estado de la lectura de notificaciones -->
-      <div v-if="canReadNotifications && status" class="status-card" :class="allReady ? 'ok' : 'warn'">
-        <div class="status-body">
-          <strong>{{ allReady ? '🔔 Leyendo notificaciones de Bancolombia y NU' : '⚠️ Falta configurar la lectura de notificaciones' }}</strong>
-          <p v-if="allReady">
-            Se guardan y se suben solas, aunque la app esté cerrada.
-            <template v-if="status.queued"> {{ status.queued }} esperando internet.</template>
-          </p>
-
-          <ul class="checklist">
-            <li :class="status.permission ? 'done' : ''">
-              <span>{{ status.permission ? '✅' : '⬜' }} Acceso a notificaciones</span>
-              <button v-if="!status.permission" class="btn-primary" @click="openNotificationSettings">Activar</button>
-            </li>
-            <li :class="status.battery ? 'done' : ''">
-              <span>{{ status.battery ? '✅' : '⬜' }} Sin límite de batería</span>
-              <button v-if="!status.battery" class="btn-primary" @click="requestBatteryExemption">Permitir</button>
-            </li>
-            <li :class="status.session ? 'done' : ''">
-              <span>{{ status.session ? '✅' : '⬜' }} Subida automática</span>
-            </li>
-          </ul>
-
-          <p v-if="!status.permission" class="status-tip">
-            En "Acceso a notificaciones" busca <b>JeiXSoft</b>, actívalo y vuelve a la app.
-          </p>
-        </div>
+  <TpLayout>
+    <!-- ===== Encabezado ===== -->
+    <div class="flex flex-wrap items-center gap-3">
+      <div class="min-w-0 flex-[1_1_200px]">
+        <h1 class="m-0 font-sans text-xl/[26px] font-semibold lg:text-[26px]/8 lg:tracking-[-0.3px]">Por confirmar</h1>
+        <p class="mt-0.5 text-[13px]/[18px] text-ink-muted lg:text-sm">
+          <TpSkeleton v-if="!ready" class="inline-block h-3.5 w-44 rounded-chip align-middle" />
+          <template v-else>{{ subtitle }}</template>
+        </p>
       </div>
-
-      <div v-else class="status-card info">
-        <div>
-          <strong>📱 Las notificaciones se leen desde la app Android</strong>
-          <p>Lo que llegue al celular aparece aquí también, para confirmarlo desde cualquier lado.</p>
-        </div>
-      </div>
-
-      <!-- Recuperar SMS de días en que el lector no los tomó -->
-      <div v-if="canReadNotifications" class="sms-bar">
-        <span>¿Faltó algún movimiento de ciertos días?</span>
-        <button class="btn-primary" @click="showSms = true">📩 Buscar SMS del banco</button>
-      </div>
-      <p v-if="smsSent" class="sms-sent">✅ {{ smsSent }} movimiento(s) recuperado(s) de los SMS: confírmalos abajo.</p>
-
-      <!-- Lista -->
-      <div v-if="items.length" class="pending-list">
-        <div v-for="item in items" :key="item.id" class="pending-card">
-          <div class="pending-top">
-            <span class="type-badge" :class="item.type || 'unknown'">
-              {{ item.type === 'income' ? '📥 Ingreso' : item.type === 'expense' ? '📤 Gasto' : '❔ Sin identificar' }}
-            </span>
-            <span class="pending-date">{{ formatReceived(item.receivedAt) }}</span>
-          </div>
-
-          <div class="pending-main">
-            <div class="pending-info">
-              <p class="pending-desc">{{ item.description || item.title || 'Movimiento' }}</p>
-              <p class="pending-account">
-                {{ accountLabel(item) }}
-              </p>
-            </div>
-            <strong class="pending-amount" :class="item.type || ''">
-              {{ item.amount !== null ? formatCurrency(item.amount) : '—' }}
-            </strong>
-          </div>
-
-          <p v-if="item.type === 'expense' && item.productKind === 'credit'" class="pending-hint">
-            💳 Compra con tarjeta de crédito: al registrarla eliges en cuántas cuotas la diferiste.
-          </p>
-
-          <p class="pending-text">{{ item.title }} · {{ item.text }}</p>
-
-          <div class="pending-actions">
-            <button class="btn-ghost" @click="toDiscard = item">Descartar</button>
-            <button class="btn-primary" @click="selected = item">Registrar</button>
-          </div>
-        </div>
-      </div>
-
-      <div v-else class="empty">
-        <span>📭</span>
-        <p>No hay movimientos por confirmar</p>
+      <span
+        v-if="canReadNotifications && status"
+        class="inline-flex items-center rounded-chip border border-line bg-primary-soft px-3 py-[5px] text-xs font-semibold"
+        :class="allReady ? 'text-success' : 'text-warning'"
+      >
+        {{ allReady ? 'Lector activo' : 'Falta configurar' }}
+      </span>
+      <div v-if="canReadNotifications" class="hidden lg:block">
+        <TpButton variant="secondary" @click="showSms = true">
+          <MessageSquareText :stroke-width="1.75" aria-hidden="true" />
+          Buscar SMS del banco
+        </TpButton>
       </div>
     </div>
-  </AppLayout>
+
+    <p
+      v-if="smsSent"
+      class="m-0 flex items-center gap-2.5 rounded-tile border border-line bg-surface-100 px-4 py-3 text-sm text-ink [&_svg]:size-[18px] [&_svg]:shrink-0 [&_svg]:text-success"
+    >
+      <CircleCheck :stroke-width="1.75" aria-hidden="true" />
+      {{ smsSent === 1 ? 'Se recuperó 1 movimiento de los SMS' : `Se recuperaron ${smsSent} movimientos de los SMS` }}: confírmalos abajo.
+    </p>
+
+    <div class="grid grid-cols-[minmax(0,1fr)] items-start gap-[18px] lg:gap-6 min-[1100px]:grid-cols-[minmax(0,2fr)_minmax(300px,1fr)]">
+      <!-- ===== Pendientes ===== -->
+      <div class="flex min-w-0 flex-col gap-3">
+        <!-- Celular: si falta configurar el lector, va primero -->
+        <ReaderStatus
+          v-if="canReadNotifications && status && !allReady"
+          class="lg:hidden"
+          :status="status"
+          :all-ready="allReady"
+        />
+
+        <!-- Cargando -->
+        <template v-if="!ready">
+          <div v-for="n in 2" :key="n" :class="cardClass" aria-busy="true" aria-label="Cargando pendientes">
+            <div class="flex justify-between">
+              <TpSkeleton class="block h-3.5 w-16 rounded-chip" />
+              <TpSkeleton class="block h-3 w-24 rounded-chip" />
+            </div>
+            <div class="flex items-end justify-between gap-3">
+              <span class="flex flex-col gap-2">
+                <TpSkeleton class="block h-4 w-44 rounded-chip" />
+                <TpSkeleton class="block h-3 w-32 rounded-chip" />
+              </span>
+              <TpSkeleton class="block h-5 w-24 rounded-chip" />
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <TpSkeleton class="block h-11 rounded-full" />
+              <TpSkeleton class="block h-11 rounded-full" />
+            </div>
+          </div>
+        </template>
+
+        <!-- Todo al día -->
+        <div v-else-if="!items.length" class="flex flex-col items-center gap-2 rounded-card bg-surface-100 px-6 py-10 text-center">
+          <span class="grid grid-cols-[minmax(0,1fr)] size-12 place-items-center rounded-full bg-surface-200 text-success [&_svg]:size-6">
+            <Inbox :stroke-width="1.75" aria-hidden="true" />
+          </span>
+          <strong class="text-base font-semibold">Nada por confirmar</strong>
+          <span class="max-w-[420px] text-sm text-ink-muted">
+            Lo que el celular lea de las notificaciones y SMS del banco aparece aquí para que lo revises antes de registrarlo.
+          </span>
+        </div>
+
+        <!-- Lista -->
+        <template v-else>
+        <article v-for="item in items" :key="item.id" :class="cardClass">
+          <div class="flex items-center justify-between gap-3">
+            <span class="inline-flex items-center gap-1.5 text-[13px]/[18px] font-semibold [&_svg]:size-4" :class="kindOf(item).class">
+              <component :is="kindOf(item).icon" :stroke-width="1.75" aria-hidden="true" />
+              {{ kindOf(item).label }}
+            </span>
+            <span class="text-xs text-ink-faint">{{ formatReceived(item.receivedAt) }}</span>
+          </div>
+
+          <div class="flex items-end justify-between gap-3">
+            <div class="flex min-w-0 flex-col gap-0.5">
+              <span class="truncate text-[15px]/[22px] font-semibold">{{ item.description || item.title || 'Movimiento' }}</span>
+              <span class="text-xs text-ink-faint">{{ accountLabel(item) }}</span>
+              <span v-if="suggestedCategory(item)" class="text-xs text-ink-faint">Categoría sugerida: {{ suggestedCategory(item) }}</span>
+            </div>
+            <span class="text-xl/[26px] font-semibold whitespace-nowrap tabular-nums" :class="{ 'text-success': item.type === 'income' }">
+              {{ amountOf(item) }}
+            </span>
+          </div>
+
+          <p v-if="item.type === 'expense' && item.productKind === 'credit'" class="m-0 text-[13px]/[19px] text-ink-muted">
+            Compra con tarjeta de crédito: al confirmarla eliges en cuántas cuotas la diferiste.
+          </p>
+
+          <details class="group text-xs text-ink-faint">
+            <summary class="cursor-pointer list-none hover:text-ink-muted">
+              <span class="group-open:hidden">Ver mensaje del banco</span>
+              <span class="hidden group-open:inline">Ocultar mensaje</span>
+            </summary>
+            <p class="mt-1.5 mb-0 rounded-chip bg-surface-200 px-3 py-2 leading-5 break-words">{{ item.title }} · {{ item.text }}</p>
+          </details>
+
+          <div class="grid grid-cols-2 gap-2 lg:flex lg:justify-end">
+            <TpButton variant="secondary" size="sm" @click="toDiscard = item">Descartar</TpButton>
+            <TpButton size="sm" @click="selected = item">Confirmar</TpButton>
+          </div>
+        </article>
+        </template>
+
+        <!-- Celular: recuperar SMS -->
+        <div v-if="canReadNotifications" class="flex gap-3 rounded-tile border border-line bg-surface-100 p-4 lg:hidden">
+          <span class="grid grid-cols-[minmax(0,1fr)] size-8 shrink-0 place-items-center rounded-full bg-primary-soft [&_svg]:size-4">
+            <MessageSquareText :stroke-width="1.75" aria-hidden="true" />
+          </span>
+          <div class="flex flex-col gap-2.5">
+            <div>
+              <span class="block text-sm font-semibold">¿Faltó algún movimiento?</span>
+              <span class="mt-0.5 block text-[13px]/[19px] text-ink-muted">Busca los SMS del banco de ciertos días y recupéralos.</span>
+            </div>
+            <TpButton variant="secondary" size="sm" class="self-start" @click="showSms = true">Buscar SMS del banco</TpButton>
+          </div>
+        </div>
+
+        <!-- Celular: el lector ya está bien, va al final -->
+        <ReaderStatus
+          v-if="canReadNotifications && status && allReady"
+          class="lg:hidden"
+          :status="status"
+          :all-ready="allReady"
+        />
+        <p v-if="!canReadNotifications" class="m-0 text-[13px]/[19px] text-ink-faint lg:hidden">
+          Las notificaciones y SMS del banco se leen desde la app Android. Lo que llegue al celular aparece aquí también.
+        </p>
+      </div>
+
+      <!-- ===== Escritorio: estado del lector ===== -->
+      <div class="hidden min-w-0 flex-col gap-4 lg:flex">
+        <ReaderStatus v-if="canReadNotifications && status" :status="status" :all-ready="allReady" />
+        <div v-else class="flex flex-col gap-2 rounded-card border border-line bg-surface-100 p-5">
+          <span class="text-sm font-medium text-ink-muted">Lector del celular</span>
+          <p class="m-0 text-sm text-ink">Las notificaciones y SMS del banco se leen desde la app Android.</p>
+          <p class="m-0 text-[13px]/[19px] text-ink-faint">Lo que llegue al celular aparece aquí también, para confirmarlo desde el computador.</p>
+        </div>
+      </div>
+    </div>
+  </TpLayout>
 
   <SmsImportModal v-if="showSms" @close="showSms = false" @sent="(n: number) => (smsSent = n)" />
 
-  <TransactionModal
+  <TxForm
     v-if="selected"
     :key="selected.id"
     title="Confirmar movimiento"
@@ -98,56 +166,51 @@
   />
 
   <!-- Confirmación antes de descartar: evita borrar algo por un toque accidental -->
-  <Teleport to="body">
-    <div v-if="toDiscard" class="confirm-overlay" @click.self="toDiscard = null">
-      <div class="confirm-dialog" role="alertdialog" aria-labelledby="discard-title">
-        <h3 id="discard-title">¿Descartar este movimiento?</h3>
-        <p class="confirm-item">
-          <strong>{{ toDiscard.description || toDiscard.title || 'Movimiento' }}</strong>
-          <span v-if="toDiscard.amount !== null" :class="toDiscard.type || ''">
-            {{ formatCurrency(toDiscard.amount) }}
-          </span>
-        </p>
-        <p class="confirm-text">
-          Se quitará de "Por confirmar" y no se registrará. Esta acción no se puede deshacer.
-        </p>
-        <div class="confirm-actions">
-          <button class="btn-ghost" @click="toDiscard = null">Cancelar</button>
-          <button class="btn-danger" :disabled="discarding" @click="confirmDiscard">
-            {{ discarding ? 'Descartando…' : 'Sí, descartar' }}
-          </button>
-        </div>
-      </div>
-    </div>
-  </Teleport>
+  <TpConfirm
+    v-if="toDiscard"
+    title="¿Descartar este movimiento?"
+    text="Se quita de Por confirmar y no se registra. No se puede deshacer."
+    confirm-label="Sí, descartar"
+    busy-label="Descartando…"
+    :busy="discarding"
+    @cancel="toDiscard = null"
+    @confirm="confirmDiscard"
+  >
+    <p class="m-0 flex justify-between gap-3 rounded-tile bg-surface-200 px-4 py-3 text-sm">
+      <strong class="truncate font-semibold">{{ toDiscard.description || toDiscard.title || 'Movimiento' }}</strong>
+      <span class="font-semibold whitespace-nowrap tabular-nums">{{ amountOf(toDiscard) }}</span>
+    </p>
+  </TpConfirm>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import AppLayout from '@/layouts/AppLayout.vue'
-import TransactionModal from '@/components/modals/TransactionModal.vue'
+import { ArrowDownLeft, ArrowUpRight, CircleCheck, CircleHelp, Inbox, MessageSquareText } from 'lucide-vue-next'
+import TpLayout from '@/layouts/TpLayout.vue'
+import TpButton from '@/components/tp/TpButton.vue'
+import TpConfirm from '@/components/tp/TpConfirm.vue'
+import TpSkeleton from '@/components/tp/TpSkeleton.vue'
+import TxForm from '@/components/tp/TxForm.vue'
+import ReaderStatus from '@/components/tp/ReaderStatus.vue'
 import SmsImportModal from '@/components/modals/SmsImportModal.vue'
+import { plain } from '@/components/tp/format'
 import { useFinanceStore } from '@/stores/finance'
-import { formatCurrency } from '@/utils/formatters'
 import { toISODate } from '@/utils/dates'
 import { parseBankNotification, type ParsedNotification } from '@/utils/bankNotifications'
 import type { PendingTransaction, Transaction } from '@/interfaces'
-import {
-  canReadNotifications,
-  flushNotifications,
-  getNotificationStatus,
-  openNotificationSettings,
-  requestBatteryExemption
-} from '@/services/notificationListener'
+import { canReadNotifications, flushNotifications, getNotificationStatus } from '@/services/notificationListener'
 
 type PendingItem = PendingTransaction & ParsedNotification & { bank: 'bancolombia' | 'nu' }
 
 const store = useFinanceStore()
+const ready = computed(() => store.loaded.pending && store.loaded.accounts)
 const selected = ref<PendingItem | null>(null)
 const showSms = ref(false)
 const smsSent = ref(0)
 const toDiscard = ref<PendingItem | null>(null)
 const discarding = ref(false)
+
+const cardClass = 'flex flex-col gap-3 rounded-card border border-line bg-surface-100 p-4 lg:p-5'
 
 async function confirmDiscard() {
   if (!toDiscard.value) return
@@ -159,9 +222,9 @@ async function confirmDiscard() {
     discarding.value = false
   }
 }
-const status = ref<Awaited<ReturnType<typeof getNotificationStatus>>>(null)
 
-const allReady = computed(() => !!status.value?.permission && status.value.battery && status.value.session)
+const status = ref<Awaited<ReturnType<typeof getNotificationStatus>>>(null)
+const allReady = computed(() => !!status.value?.permission && !!status.value.battery && !!status.value.session)
 
 // Se interpretan al mostrarlas: mejorar el intérprete no requiere reinstalar la app
 const items = computed<PendingItem[]>(() =>
@@ -170,6 +233,12 @@ const items = computed<PendingItem[]>(() =>
     return { ...p, bank, ...parseBankNotification(p.title, p.text, bank) }
   })
 )
+
+const subtitle = computed(() => {
+  const n = items.value.length
+  if (!n) return 'Todo al día'
+  return n === 1 ? '1 movimiento leído del banco' : `${n} movimientos leídos del banco`
+})
 
 async function refresh() {
   status.value = await getNotificationStatus()
@@ -183,11 +252,24 @@ function onVisible() {
 }
 
 onMounted(() => {
+  store.loadAccounts()
   refresh()
   document.addEventListener('visibilitychange', onVisible)
 })
-
 onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisible))
+
+function kindOf(item: PendingItem) {
+  if (item.type === 'income') return { label: 'Ingreso', icon: ArrowDownLeft, class: 'text-success' }
+  if (item.type === 'expense') return { label: 'Gasto', icon: ArrowUpRight, class: 'text-ink-muted' }
+  return { label: 'Sin identificar', icon: CircleHelp, class: 'text-warning' }
+}
+
+function amountOf(item: PendingItem) {
+  if (item.amount === null) return '—'
+  if (item.type === 'income') return `+${plain(item.amount)}`
+  if (item.type === 'expense') return `−${plain(item.amount)}`
+  return plain(item.amount)
+}
 
 function accountFor(item: PendingItem) {
   return store.getAccountForNotification(item.last4, item.productKind, item.bank)
@@ -195,24 +277,23 @@ function accountFor(item: PendingItem) {
 
 function accountLabel(item: PendingItem) {
   const account = accountFor(item)
-  if (account) return `${account.icon} ${account.name}${item.last4 ? ` · *${item.last4}` : ''}`
+  if (account) return `${account.name}${item.last4 ? ` · *${item.last4}` : ''}`
   return item.last4 ? `Cuenta *${item.last4} (sin asociar)` : 'Cuenta sin identificar'
 }
 
+function suggestedCategory(item: PendingItem) {
+  return (item.suggestedCategory && store.getCategoryById(item.suggestedCategory)?.name) || ''
+}
+
 function formatReceived(iso: string) {
-  return new Date(iso).toLocaleString('es-CO', {
-    day: 'numeric',
-    month: 'short',
-    hour: 'numeric',
-    minute: '2-digit'
-  })
+  const d = new Date(iso)
+  const day = d.toLocaleDateString('es-CO', { day: 'numeric', month: 'short' }).replace('.', '').replace(' de ', ' ')
+  const time = d.toLocaleTimeString('es-CO', { hour: 'numeric', minute: '2-digit' })
+  return `${day} · ${time}`
 }
 
 function prefillFor(item: PendingItem): Partial<Transaction> {
-  const category = item.suggestedCategory && store.getCategoryById(item.suggestedCategory)
-    ? item.suggestedCategory
-    : ''
-
+  const category = item.suggestedCategory && store.getCategoryById(item.suggestedCategory) ? item.suggestedCategory : ''
   return {
     type: item.type || 'expense',
     amount: item.amount || 0,
@@ -223,295 +304,3 @@ function prefillFor(item: PendingItem): Partial<Transaction> {
   }
 }
 </script>
-
-<style scoped>
-.inbox-page {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.status-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 16px;
-  border-radius: 14px;
-  border: 1px solid var(--border);
-  background: var(--bg-card);
-}
-
-.status-card strong {
-  display: block;
-  font-size: 14px;
-  color: var(--text-primary);
-  margin-bottom: 4px;
-}
-
-.status-card p {
-  font-size: 13px;
-  color: var(--text-secondary);
-}
-
-.status-body { flex: 1; min-width: 0; }
-
-.checklist {
-  list-style: none;
-  margin-top: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.checklist li {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  font-size: 13px;
-  color: var(--text-secondary);
-}
-
-.checklist li.done { color: var(--text-primary); }
-
-.status-tip {
-  margin-top: 10px;
-  font-size: 12px;
-}
-
-.status-card.ok { border-left: 4px solid var(--accent-green); }
-.status-card.warn { border-left: 4px solid var(--accent-amber); }
-.status-card.info { border-left: 4px solid var(--accent-blue); }
-
-.pending-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
-  gap: 12px;
-}
-
-.pending-card {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  min-width: 0;
-  padding: 16px;
-  border-radius: 14px;
-  border: 1px solid var(--border);
-  background: var(--bg-card);
-}
-
-.pending-top,
-.pending-main,
-.pending-actions {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.type-badge {
-  font-size: 11px;
-  font-weight: 600;
-  padding: 3px 10px;
-  border-radius: 20px;
-  background: var(--bg-elevated);
-  color: var(--text-secondary);
-}
-
-.type-badge.income { background: var(--accent-green-dim); color: var(--accent-green); }
-.type-badge.expense { background: var(--accent-red-dim); color: var(--accent-red); }
-
-.pending-date {
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-.pending-info { min-width: 0; }
-
-.pending-desc,
-.pending-account {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.pending-desc {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.pending-account {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-top: 2px;
-}
-
-.pending-amount {
-  flex-shrink: 0;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 16px;
-  color: var(--text-primary);
-}
-
-.pending-amount.income { color: var(--accent-green); }
-.pending-amount.expense { color: var(--accent-red); }
-
-.pending-hint {
-  font-size: 12px;
-  color: var(--accent-blue);
-}
-
-.pending-text {
-  font-size: 12px;
-  color: var(--text-muted);
-  background: var(--bg-elevated);
-  border-radius: 8px;
-  padding: 8px 10px;
-  overflow-wrap: anywhere;
-}
-
-.pending-actions {
-  justify-content: flex-end;
-}
-
-.btn-primary,
-.btn-ghost {
-  flex-shrink: 0;
-  border-radius: 10px;
-  padding: 9px 16px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.btn-primary {
-  border: none;
-  background: linear-gradient(135deg, var(--accent-green), #00b377);
-  color: #000;
-}
-
-.btn-ghost {
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text-secondary);
-}
-
-.empty {
-  text-align: center;
-  padding: 48px 16px;
-  color: var(--text-muted);
-}
-
-.empty span {
-  display: block;
-  font-size: 36px;
-  opacity: 0.5;
-  margin-bottom: 8px;
-}
-
-.confirm-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 100;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(4px);
-}
-
-.confirm-dialog {
-  width: 100%;
-  max-width: 380px;
-  padding: 20px;
-  border-radius: 18px;
-  border: 1px solid var(--border);
-  background: var(--bg-surface);
-}
-
-.confirm-dialog h3 {
-  font-size: 17px;
-  color: var(--text-primary);
-  margin-bottom: 14px;
-}
-
-.confirm-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: var(--bg-elevated);
-  margin-bottom: 12px;
-}
-
-.confirm-item strong {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 14px;
-  color: var(--text-primary);
-}
-
-.confirm-item span {
-  flex-shrink: 0;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 14px;
-  color: var(--text-primary);
-}
-
-.confirm-item span.income { color: var(--accent-green); }
-.confirm-item span.expense { color: var(--accent-red); }
-
-.confirm-text {
-  font-size: 13px;
-  color: var(--text-secondary);
-  margin-bottom: 18px;
-}
-
-.confirm-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-}
-
-.btn-danger {
-  border: none;
-  border-radius: 10px;
-  padding: 9px 16px;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  background: var(--accent-red);
-  color: #fff;
-}
-
-.btn-danger:disabled { opacity: 0.6; cursor: default; }
-
-@media (max-width: 480px) {
-  .status-card {
-    flex-direction: column;
-    align-items: stretch;
-  }
-}
-
-.sms-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  flex-wrap: wrap;
-  padding: 12px 14px;
-  border-radius: 14px;
-  border: 1px dashed var(--border-light);
-  font-size: 13px;
-  color: var(--text-secondary);
-}
-
-.sms-sent { font-size: 13px; color: var(--accent-green); }
-</style>

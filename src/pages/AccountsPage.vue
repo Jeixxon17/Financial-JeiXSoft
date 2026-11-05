@@ -1,663 +1,143 @@
 <template>
-  <AppLayout>
-    <div class="accounts-page">
-      <div class="page-header">
-        <div>
-          <p class="header-subtitle">Gestiona tus cuentas bancarias y tarjetas</p>
-        </div>
-        <button class="btn-add" @click="showModalBanks = true">+ Nueva cuenta</button>
+  <TpLayout>
+    <!-- ===== Encabezado ===== -->
+    <div class="flex flex-wrap items-center gap-3">
+      <div class="min-w-0 flex-[1_1_200px]">
+        <h1 :class="pageTitle">Cuentas y tarjetas</h1>
+        <p class="mt-0.5 text-[13px]/[18px] text-ink-muted lg:text-sm">
+          <TpSkeleton v-if="!ready" class="inline-block h-3.5 w-40 rounded-chip align-middle" />
+          <template v-else>{{ subtitle }}</template>
+        </p>
       </div>
-
-      <!-- Summary -->
-      <div class="acc-summary">
-        <div class="sum-chip">
-          <span>💰 Activos totales</span>
-          <strong class="text-green">{{ formatCurrency(totalAssets) }}</strong>
-        </div>
-        <div class="sum-chip">
-          <span>💳 Deuda total</span>
-          <strong class="text-red">{{ formatCurrency(store.totalDebt) }}</strong>
-        </div>
-        <div class="sum-chip">
-          <span>🏦 Cupo disponible</span>
-          <strong class="text-purple">{{ formatCurrency(store.availableCredit) }}</strong>
-        </div>
-      </div>
-
-      <!-- Accounts grid -->
-      <div class="accounts-grid">
-        <AccountCard
-          v-for="acc in store.accounts"
-          :key="acc.id"
-          :account="acc"
-          @edit="editAccount = $event; showModalBanks = true"
-          @statement="statementAccount = $event"
-          @reconcile="reconcileAccount = $event"
-          @delete="store.deleteAccount($event)"
-        />
-        <div class="add-account-card" @click="showModalBanks = true">
-          <span class="add-icon">+</span>
-          <p>Agregar cuenta</p>
-        </div>
+      <button type="button" :class="[iconBtn, 'border-primary bg-primary text-white lg:hidden']" aria-label="Agregar cuenta" @click="form = { account: null }">
+        <Plus :stroke-width="1.75" aria-hidden="true" />
+      </button>
+      <div class="hidden lg:block">
+        <TpButton @click="form = { account: null }">
+          <Plus :stroke-width="1.75" aria-hidden="true" />
+          Agregar cuenta
+        </TpButton>
       </div>
     </div>
 
-  </AppLayout>
-
-  <BankReconcileModal
-    v-if="reconcileAccount"
-    :key="'r' + reconcileAccount.id"
-    :account="reconcileAccount"
-    @close="reconcileAccount = null"
-  />
-
-  <StatementImportModal
-    v-if="statementAccount"
-    :key="statementAccount.id"
-    :account="statementAccount"
-    @close="statementAccount = null"
-  />
-
-  
-    <!-- Account modal -->
-    <Teleport to="body" v-if="showModalBanks">
-      <div class="modal-backdrop"  @click.self="closeModal">
-        <div class="modal">
-          <div class="modal-header">
-            <h2>{{ editAccount ? 'Editar cuenta' : 'Nueva cuenta' }}</h2>
-            <button @click="closeModal">✕</button>
-          </div>
-
-          <div class="modal-body">
-            <div class="form-grid">
-              <div class="form-group full">
-                <label>Nombre *</label>
-                <input v-model="form.name" type="text" placeholder="Ej: Bancolombia" />
-              </div>
-              <div class="form-group">
-                <label>Tipo *</label>
-                <select v-model="form.type">
-                  <option value="debit">Débito</option>
-                  <option value="credit">Crédito</option>
-                  <option value="savings">Ahorro</option>
-                  <option value="cash">Efectivo</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label>Icono</label>
-                <div class="icon-picker">
-                  <button
-                    v-for="icon in icons"
-                    :key="icon"
-                    class="icon-opt"
-                    :class="{ selected: form.icon === icon }"
-                    @click="form.icon = icon"
-                  >{{ icon }}</button>
-                </div>
-              </div>
-              <div class="form-group">
-                <label>Color</label>
-                <div class="color-picker">
-                  <button
-                    v-for="color in colors"
-                    :key="color"
-                    class="color-opt"
-                    :style="{ background: color }"
-                    :class="{ selected: form.color === color }"
-                    @click="form.color = color"
-                  />
-                </div>
-              </div>
-
-              <div class="form-group">
-                <label>Últimos 4 dígitos</label>
-                <input v-model="form.lastDigits" type="text" inputmode="numeric" maxlength="4" placeholder="Ej: 1234" />
-                <small class="form-hint">Para reconocer la cuenta en las notificaciones del banco.</small>
-              </div>
-
-              <template v-if="form.type !== 'credit'">
-                <div class="form-group">
-                  <label>Saldo inicial</label>
-                  <input v-model.number="form.balance" type="number" placeholder="0" />
-                </div>
-              </template>
-
-              <template v-if="form.type === 'credit'">
-                <div class="form-group">
-                  <label>Cupo total</label>
-                  <input v-model.number="form.creditLimit" type="number" placeholder="0" />
-                </div>
-                <div class="form-group">
-                  <label>Cupo usado</label>
-                  <input v-model.number="form.usedCredit" type="number" placeholder="0" />
-                </div>
-                <div class="form-group">
-                  <label>Fecha de corte (día)</label>
-                  <input v-model.number="form.cutoffDate" type="number" min="1" max="31" placeholder="15" />
-                </div>
-                <div class="form-group">
-                  <label>Fecha de pago (día)</label>
-                  <input v-model.number="form.paymentDate" type="number" min="1" max="31" placeholder="25" />
-                </div>
-                <div class="form-group">
-                  <label>Interés mensual a cuotas (%)</label>
-                  <input v-model.number="form.interestRate" type="number" min="0" step="0.0001" placeholder="Ej: 2.1593" />
-                </div>
-                <div class="form-group">
-                  <label>Cuotas sin interés (hasta)</label>
-                  <input v-model.number="form.interestFreeInstallments" type="number" min="0" max="48" placeholder="Ej: ADDI 3" />
-                </div>
-                <div class="form-group">
-                  <label>Comisión moneda extranjera (%)</label>
-                  <input v-model.number="form.fxFeeRate" type="number" min="0" step="0.01" placeholder="Ej: 0.45" />
-                </div>
-                <div v-if="editAccount" class="form-group full">
-                  <label>Pago mínimo del extracto (corte {{ currentCutoffLabel }})</label>
-                  <input v-model.number="form.statementMinimum" type="number" placeholder="Lo que dice el banco" />
-                  <small class="form-hint">
-                    Si el banco cobra intereses o comisiones, escribe el mínimo real y la app ajusta la diferencia.
-                  </small>
-                </div>
-                <div v-if="editAccount" class="form-group">
-                  <label>Deuda total según el banco</label>
-                  <input v-model.number="form.reportedDebt" type="number" :placeholder="formatCurrency(currentDebt)" />
-                </div>
-                <div v-if="editAccount" class="form-group">
-                  <label>Cuotas de la diferencia</label>
-                  <input v-model.number="form.reportedDebtInstallments" type="number" min="1" placeholder="1" />
-                </div>
-                <small v-if="editAccount" class="form-hint full">
-                  La app lleva {{ formatCurrency(currentDebt) }}. Si el banco dice otra cosa, la diferencia se
-                  guarda como compra diferida y se va facturando por cuotas desde el próximo corte.
-                </small>
-                <div v-if="editAccount && listedDeferred.length" class="form-group full">
-                  <label>Deuda diferida</label>
-                  <div v-for="debt in listedDeferred" :key="debt.id" class="deferred-row">
-                    <span>{{ debt.description }} · {{ formatCurrency(debt.amount) }}</span>
-                    <input v-model.number="debt.installments" type="number" min="1" title="Cuotas" />
-                    <span class="form-hint">cuotas</span>
-                    <button type="button" class="action-btn" @click="removeDeferred(debt.id)">🗑️</button>
-                  </div>
-                </div>
-                <div v-if="editAccount" class="form-group full">
-                  <label>Cupo gastado según el banco (hoy)</label>
-                  <input v-model.number="form.reportedLimitUsed" type="number" min="0" :placeholder="formatCurrency(currentLimitUsed)" />
-                  <small class="form-hint">
-                    Opcional, ej: "Cupo que has gastado" en ADDI. Desde ahí suben las compras y baja el capital de
-                    cada cuota al pasar su fecha de pago (intereses y créditos aparte no gastan cupo).
-                  </small>
-                </div>
-                <div class="form-group full section-title">
-                  <label>Crédito aparte del cupo (opcional)</label>
-                  <small class="form-hint">
-                    Ej: el Crédito Grande de ADDI. Cuenta como deuda y entra en el pago mínimo, pero no gasta cupo.
-                  </small>
-                </div>
-                <div class="form-group">
-                  <label>Nombre</label>
-                  <input v-model="form.separateName" type="text" placeholder="Crédito Grande" />
-                </div>
-                <div class="form-group">
-                  <label>Nombre en el extracto</label>
-                  <input v-model="form.separateStatementName" type="text" placeholder="Ej: Marketplace Addi" />
-                </div>
-                <div class="form-group">
-                  <label>Capital pendiente</label>
-                  <input v-model.number="form.separatePending" type="number" min="0" placeholder="0" />
-                </div>
-                <div class="form-group">
-                  <label>Cuotas que faltan</label>
-                  <input v-model.number="form.separateInstallments" type="number" min="1" placeholder="1" />
-                </div>
-              </template>
-            </div>
-          </div>
-
-          <div class="modal-footer">
-            <button class="btn-cancel" @click="closeModal">Cancelar</button>
-            <button class="btn-save" @click="save" :disabled="!form.name">Guardar</button>
-          </div>
-        </div>
+    <!-- ===== Resumen ===== -->
+    <div class="grid grid-cols-2 gap-2.5 lg:grid-cols-4 lg:gap-3">
+      <div v-for="stat in stats" :key="stat.label" class="flex flex-col gap-1 rounded-card border border-line bg-surface-100 px-4 py-3.5">
+        <span class="text-xs text-ink-faint">{{ stat.label }}</span>
+        <TpSkeleton v-if="!ready" class="my-0.5 block h-5 w-24 rounded-chip" />
+        <strong v-else class="text-lg/6 font-semibold tabular-nums lg:text-[22px]/7" :class="stat.class">{{ stat.value }}</strong>
       </div>
-    </Teleport>
+    </div>
+
+    <!-- ===== Tarjetas ===== -->
+    <section class="grid grid-cols-[minmax(0,1fr)] gap-4 sm:grid-cols-[repeat(auto-fill,minmax(300px,1fr))]" aria-label="Tus cuentas y tarjetas" :aria-busy="!ready">
+      <template v-if="!ready">
+        <BankCardSkeleton v-for="n in 3" :key="n" />
+      </template>
+      <template v-else>
+        <button
+          v-for="(card, i) in cards"
+          :key="card.id"
+          type="button"
+          class="cursor-pointer rounded-card text-left transition-transform duration-250 hover:-translate-y-1 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent-light"
+          :aria-label="`Ver ${card.name}`"
+          @click="detailId = card.id"
+        >
+          <span :class="[bankCardClass, 'relative h-full animate-card-in motion-reduce:animate-none']" :style="{ animationDelay: `${i * 0.06}s` }">
+            <BankCardFace :card="card" />
+          </span>
+        </button>
+        <button
+          type="button"
+          class="flex min-h-[200px] cursor-pointer flex-col items-center justify-center gap-2.5 rounded-card border-[1.5px] border-dashed border-line-strong bg-[#0b1229] text-center text-ink transition-colors hover:border-accent-light"
+          :class="{ 'animate-breathe motion-reduce:animate-none': !cards.length }"
+          @click="form = { account: null }"
+        >
+          <span class="grid grid-cols-[minmax(0,1fr)] size-[52px] place-items-center rounded-full bg-primary text-white"><Plus :size="24" :stroke-width="2" aria-hidden="true" /></span>
+          <strong class="text-base font-semibold">{{ cards.length ? 'Agregar cuenta o tarjeta' : 'Agrega tu primera cuenta' }}</strong>
+          <small class="text-[13px]/[18px] text-ink-muted">Ahorros, débito, efectivo o tarjeta de crédito</small>
+        </button>
+      </template>
+    </section>
+  </TpLayout>
+
+  <AccountDetail
+    v-if="detailAccount"
+    :key="detailAccount.id"
+    :account="detailAccount"
+    @close="detailId = null"
+    @pay="acc => { detailId = null; payCard = acc.id }"
+    @statement="acc => { detailId = null; statementAccount = acc }"
+    @reconcile="acc => { detailId = null; reconcileAccount = acc }"
+    @edit="acc => { detailId = null; form = { account: acc } }"
+  />
+  <AccountForm v-if="form" :account="form.account" @close="form = null" />
+  <TxForm v-if="payCard" :pay-card="payCard" @close="payCard = null" />
+  <StatementImportModal v-if="statementAccount" :key="statementAccount.id" :account="statementAccount" @close="statementAccount = null" />
+  <BankReconcileModal v-if="reconcileAccount" :key="'r' + reconcileAccount.id" :account="reconcileAccount" @close="reconcileAccount = null" />
 </template>
 
 <script setup lang="ts">
-import {
-  ref,
-  computed,
-  reactive,
-  watch,
-  onMounted
-} from 'vue'
-import AppLayout from '@/layouts/AppLayout.vue'
-import AccountCard from '@/components/cards/AccountCard.vue'
+import { computed, onMounted, ref } from 'vue'
+import { Plus } from 'lucide-vue-next'
+import TpLayout from '@/layouts/TpLayout.vue'
+import TpButton from '@/components/tp/TpButton.vue'
+import TpSkeleton from '@/components/tp/TpSkeleton.vue'
+import BankCardFace from '@/components/tp/BankCardFace.vue'
+import BankCardSkeleton from '@/components/tp/BankCardSkeleton.vue'
+import AccountDetail from '@/components/tp/AccountDetail.vue'
+import AccountForm from '@/components/tp/AccountForm.vue'
+import TxForm from '@/components/tp/TxForm.vue'
 import StatementImportModal from '@/components/modals/StatementImportModal.vue'
 import BankReconcileModal from '@/components/modals/BankReconcileModal.vue'
+import { bankCardClass } from '@/components/tp/cards'
+import { useAccountCards } from '@/components/tp/useAccountCards'
+import { money } from '@/components/tp/format'
 import { useFinanceStore } from '@/stores/finance'
-import { formatCurrency } from '@/utils/formatters'
-import type { Account, DeferredDebt } from '@/interfaces'
-import { calculateCreditStatement } from '@/utils/creditStatement'
-import { dateInMonth, parseISODate, toISODate, todayISO } from '@/utils/dates'
+import type { Account } from '@/interfaces'
 
 const store = useFinanceStore()
+const { cards } = useAccountCards()
+const ready = computed(() => store.loaded.accounts && store.loaded.transactions)
 
-onMounted(async () => {
-  await Promise.all([store.loadAccounts(), store.loadTransactions()])
+const pageTitle = 'm-0 font-sans text-xl/[26px] font-semibold lg:text-[26px]/8 lg:tracking-[-0.3px]'
+const iconBtn =
+  'relative grid size-10 shrink-0 cursor-pointer place-items-center rounded-full border border-line-strong text-ink transition-colors hover:bg-surface-200 [&_svg]:size-[18px]'
+
+const subtitle = computed(() => {
+  const n = store.accounts.length
+  const withDebt = store.accounts.filter(a => a.type === 'credit' && store.calculateAccountBalance(a.id).usedCredit > 0).length
+  if (!n) return 'Aún no tienes cuentas'
+  return `${n} ${n === 1 ? 'cuenta' : 'cuentas'}${withDebt ? ` · ${withDebt} con deuda` : ''}`
 })
 
-const showModalBanks = ref(false)
-const editAccount = ref<Account | null>(null)
+// Mínimos que faltan por pagar en los extractos actuales
+const pendingMinimums = computed(() =>
+  store.accounts
+    .filter(a => a.type === 'credit')
+    .reduce((sum, a) => {
+      const st = store.getCreditStatement(a.id)
+      return st && !st.isMinimumCovered ? sum + st.minimumPayment : sum
+    }, 0)
+)
+
+const stats = computed(() => [
+  { label: 'Saldo en cuentas', value: money(store.totalBalance), class: '' },
+  { label: 'Deuda total', value: money(store.totalDebt), class: '' },
+  { label: 'Cupo disponible', value: money(store.availableCredit), class: 'text-success' },
+  { label: 'Mínimos por pagar', value: money(pendingMinimums.value), class: pendingMinimums.value ? 'text-warning' : '' }
+])
+
+// Hojas y modales
+const detailId = ref<string | null>(null)
+const detailAccount = computed(() => store.accounts.find(a => a.id === detailId.value) || null)
+const form = ref<{ account: Account | null } | null>(null)
+const payCard = ref<string | null>(null)
 const statementAccount = ref<Account | null>(null)
 const reconcileAccount = ref<Account | null>(null)
 
-const totalAssets = computed(() =>
-  store.accounts.filter(a => a.type !== 'credit').reduce((s, a) => s + a.balance, 0)
-)
-
-const icons = ['🏦', '💜', '🟢', '💵', '💳', '🔵', '🟡', '🔴', '🏧', '💰', '📱', '🌐']
-const colors = ['#FFD700', '#820AD1', '#00C9A7', '#6C63FF', '#4a9eff', '#ff4757', '#00d68f', '#f59e0b', '#ec4899', '#06b6d4', '#3b82f6', '#ef4444']
-
-const defaultForm = () => ({
-  name: '',
-  type: 'debit' as Account['type'],
-  balance: 0,
-  color: '#4a9eff',
-  icon: '🏦',
-  creditLimit: 0,
-  usedCredit: 0,
-  cutoffDate: 15,
-  paymentDate: 25,
-  interestRate: 0,
-  interestFreeInstallments: 0,
-  fxFeeRate: 0,
-  lastDigits: '',
-  statementMinimums: {} as Record<string, number>,
-  statementMinimum: 0,
-  deferredDebts: [] as DeferredDebt[],
-  limitUsedAnchor: undefined as Account['limitUsedAnchor'],
-  reportedDebt: null as number | null,
-  reportedDebtInstallments: 1,
-  separateName: '',
-  separateStatementName: '',
-  separatePending: 0,
-  separateInstallments: 1,
-  reportedLimitUsed: null as number | null
-})
-
-const form = reactive(defaultForm())
-
-function closeModal() {
-  showModalBanks.value = false
-  editAccount.value = null
-  Object.assign(form, defaultForm())
-}
-
-// Último corte cerrado de la tarjeta que se está editando
-const currentCutoff = computed(() => {
-  if (!editAccount.value || form.type !== 'credit' || !form.cutoffDate) return null
-  const { lastCutoff } = calculateCreditStatement({ ...editAccount.value, cutoffDate: form.cutoffDate }, [])
-  return lastCutoff ? toISODate(lastCutoff) : null
-})
-
-const currentCutoffLabel = computed(() =>
-  currentCutoff.value ? currentCutoff.value.split('-').reverse().join('/') : ''
-)
-
-const sumDeferred = (debts: DeferredDebt[] = []) => debts.reduce((s, d) => s + d.amount, 0)
-
-// Deuda que lleva la app, con la deuda diferida tal como está en el formulario
-const currentDebt = computed(() => {
-  if (!editAccount.value) return 0
-  return (
-    store.calculateAccountBalance(editAccount.value.id).usedCredit -
-    sumDeferred(editAccount.value.deferredDebts) +
-    sumDeferred(form.deferredDebts)
-  )
-})
-
-// Un día antes del corte: la compra se factura en ese corte
-function dayBefore(iso: string): string {
-  const date = parseISODate(iso)
-  date.setDate(date.getDate() - 1)
-  return toISODate(date)
-}
-
-const currentLimitUsed = computed(() =>
-  editAccount.value ? store.calculateAccountBalance(editAccount.value.id).limitUsed : 0
-)
-
-// El crédito aparte del cupo se edita con sus propios campos
-const listedDeferred = computed(() => form.deferredDebts.filter(d => !d.outsideLimit))
-
-function removeDeferred(id: string) {
-  form.deferredDebts = form.deferredDebts.filter(d => d.id !== id)
-}
-
-function save() {
-  if (!form.name) return
-  const {
-    statementMinimum, reportedDebt, reportedDebtInstallments,
-    separateName, separateStatementName, separatePending, separateInstallments, reportedLimitUsed, ...data
-  } = form
-  if (reportedLimitUsed != null && reportedLimitUsed >= 0 && data.type === 'credit') {
-    data.limitUsedAnchor = { amount: reportedLimitUsed, date: todayISO() }
-  }
-  // Firestore no acepta campos undefined
-  if (!data.limitUsedAnchor) delete data.limitUsedAnchor
-  // Si cambia el día de corte, cada mínimo pasa al corte nuevo de ese extracto
-  const previousDay = editAccount.value?.cutoffDate
-  const statementMinimums = previousDay && data.cutoffDate && previousDay !== data.cutoffDate
-    ? Object.fromEntries(Object.entries(data.statementMinimums).map(([iso, minimum]) => {
-        const date = parseISODate(iso)
-        let cutoff = dateInMonth(date.getFullYear(), date.getMonth(), data.cutoffDate)
-        if (cutoff > date) cutoff = dateInMonth(date.getFullYear(), date.getMonth() - 1, data.cutoffDate)
-        return [toISODate(cutoff), minimum]
-      }))
-    : { ...data.statementMinimums }
-  const deferredDebts = data.deferredDebts
-    .filter(d => !d.outsideLimit)
-    .map(d => ({ ...d, installments: Math.max(1, d.installments || 1) }))
-
-  // Crédito aparte del cupo: si cambia el capital pendiente se factura desde el último corte
-  const separate = data.deferredDebts.find(d => d.outsideLimit)
-  if (data.type === 'credit' && separatePending > 0) {
-    const changed = !separate || Math.abs(separate.amount - separatePending) >= 1 ||
-      separate.installments !== Math.max(1, separateInstallments || 1)
-    deferredDebts.push({
-      id: separate?.id || `sep_${Date.now()}`,
-      description: separateName.trim() || 'Crédito aparte',
-      statementName: separateStatementName.trim(),
-      amount: separatePending,
-      installments: Math.max(1, separateInstallments || 1),
-      date: changed ? dayBefore(currentCutoff.value || todayISO()) : separate!.date,
-      outsideLimit: true
-    })
-  }
-
-  const difference = reportedDebt ? Math.round(reportedDebt - currentDebt.value) : 0
-  if (difference !== 0) {
-    deferredDebts.push({
-      id: `def_${Date.now()}`,
-      description: 'Ajuste deuda total',
-      amount: difference,
-      installments: Math.max(1, reportedDebtInstallments || 1),
-      date: todayISO()
-    })
-  }
-
-  if (currentCutoff.value) {
-    if (statementMinimum > 0) statementMinimums[currentCutoff.value] = statementMinimum
-    else delete statementMinimums[currentCutoff.value]
-  }
-
-  if (editAccount.value) {
-    store.updateAccount(editAccount.value.id, { ...data, statementMinimums, deferredDebts })
-  } else {
-    store.addAccount({ ...data, statementMinimums, deferredDebts })
-  }
-  closeModal()
-}
-
-// Populate form when editing
-watch(editAccount, (acc) => {
-  if (!acc) return
-  Object.assign(form, defaultForm(), acc)
-  form.deferredDebts = (acc.deferredDebts || []).map(d => ({ ...d }))
-  const separate = acc.deferredDebts?.find(d => d.outsideLimit)
-  if (separate) {
-    form.separateName = separate.description
-    form.separateStatementName = separate.statementName || ''
-    form.separatePending = separate.amount
-    form.separateInstallments = separate.installments
-  }
-  form.statementMinimum = currentCutoff.value
-    ? acc.statementMinimums?.[currentCutoff.value] || 0
-    : 0
+onMounted(() => {
+  store.loadAccounts()
+  store.loadTransactions()
 })
 </script>
-
-<style scoped>
-.accounts-page { display: flex; flex-direction: column; gap: 20px; }
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.header-subtitle {
-  font-size: 13px;
-  color: var(--text-muted);
-  margin-top: 4px;
-}
-
-.btn-add {
-  background: linear-gradient(135deg, var(--accent-green), #00b377);
-  border: none;
-  border-radius: 10px;
-  padding: 10px 20px;
-  color: #000;
-  font-weight: 600;
-  font-size: 13px;
-  cursor: pointer;
-  font-family: 'DM Sans', sans-serif;
-  box-shadow: 0 4px 12px rgba(0,214,143,0.25);
-}
-
-.acc-summary {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-}
-
-.sum-chip {
-  flex: 1;
-  min-width: 150px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 14px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.sum-chip span { font-size: 11px; color: var(--text-muted); }
-.sum-chip strong { font-family: 'JetBrains Mono', monospace; font-size: 18px; }
-
-.text-green { color: var(--accent-green); }
-.text-red { color: var(--accent-red); }
-.text-purple { color: var(--accent-purple); }
-
-.accounts-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
-}
-
-.add-account-card {
-  background: var(--bg-card);
-  border: 2px dashed var(--border-light);
-  border-radius: 16px;
-  padding: 32px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  cursor: pointer;
-  transition: all 0.2s;
-  color: var(--text-muted);
-  min-height: 160px;
-}
-
-.add-account-card:hover {
-  border-color: var(--accent-green);
-  color: var(--accent-green);
-  background: rgba(0, 214, 143, 0.04);
-}
-
-.add-icon { font-size: 28px; opacity: 0.5; }
-.add-account-card p { font-size: 13px; }
-
-/* Modal */
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.7);
-  backdrop-filter: blur(4px);
-  z-index: 200;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-}
-
-.modal {
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  width: 100%;
-  max-width: 500px;
-  max-height: 90vh;
-  overflow-y: auto;
-  animation: fadeInUp 0.3s ease;
-}
-
-.modal-header {
-  padding: 24px 24px 0;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.modal-header h2 { font-size: 20px; font-weight: 700; color: var(--text-primary); }
-.modal-header button {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  width: 32px; height: 32px;
-  cursor: pointer;
-  color: var(--text-secondary);
-  font-size: 14px;
-}
-
-.modal-body { padding: 24px; }
-
-.form-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-}
-
-.form-group { display: flex; flex-direction: column; gap: 6px; }
-.form-group.full { grid-column: 1 / -1; }
-.form-hint { font-size: 12px; color: var(--text-muted); }
-.form-hint.full { grid-column: 1 / -1; margin-top: -8px; }
-.deferred-row { display: flex; align-items: center; gap: 8px; font-size: 13px; }
-.deferred-row > span:first-child { flex: 1; }
-.deferred-row input { width: 64px; }
-.deferred-row button { background: none; border: none; cursor: pointer; font-size: 14px; }
-
-.form-group label {
-  font-size: 11px;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  font-weight: 500;
-}
-
-.form-group input, .form-group select {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 10px 12px;
-  color: var(--text-primary);
-  font-size: 14px;
-  font-family: 'DM Sans', sans-serif;
-  width: 100%;
-}
-
-.form-group input:focus, .form-group select:focus {
-  outline: none;
-  border-color: var(--accent-green);
-}
-
-.icon-picker {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.icon-opt {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--bg-elevated);
-  cursor: pointer;
-  font-size: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-}
-
-.icon-opt.selected, .icon-opt:hover {
-  border-color: var(--accent-green);
-  background: var(--accent-green-dim);
-}
-
-.color-picker {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.color-opt {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: 2px solid transparent;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.color-opt.selected { border-color: white; transform: scale(1.15); }
-.color-opt:hover { transform: scale(1.1); }
-
-.modal-footer {
-  padding: 0 24px 24px;
-  display: flex;
-  gap: 10px;
-  justify-content: flex-end;
-}
-
-.btn-cancel {
-  padding: 10px 20px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  color: var(--text-secondary);
-  font-size: 14px;
-  cursor: pointer;
-  font-family: 'DM Sans', sans-serif;
-}
-
-.btn-save {
-  padding: 10px 24px;
-  background: linear-gradient(135deg, var(--accent-green), #00b377);
-  border: none;
-  border-radius: 10px;
-  color: #000;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  font-family: 'DM Sans', sans-serif;
-}
-
-.btn-save:disabled { opacity: 0.4; cursor: not-allowed; }
-
-option { background: var(--bg-elevated); }
-</style>

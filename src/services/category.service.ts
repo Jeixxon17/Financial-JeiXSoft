@@ -8,7 +8,7 @@ import {
   updateDoc
 } from 'firebase/firestore'
 
-import { db } from '@/firebase/config'
+import { userCollection, userDoc } from '@/firebase/dataRoot'
 
 import type { Category } from '@/interfaces'
 
@@ -17,7 +17,7 @@ const COLLECTION = 'categories'
 export const getCategoriesService = async () => {
 
   const snapshot = await getDocs(
-    collection(db, COLLECTION)
+    userCollection(COLLECTION)
   )
 
   return snapshot.docs.map(docu => ({
@@ -31,7 +31,7 @@ export const createCategoryService = async (
 ) => {
 
   const ref = await addDoc(
-    collection(db, COLLECTION),
+    userCollection(COLLECTION),
     category
   )
 
@@ -45,7 +45,7 @@ export const setCategoryService = async (
 ) => {
 
   await setDoc(
-    doc(db, COLLECTION, id),
+    userDoc(COLLECTION, id),
     category
   )
 }
@@ -55,7 +55,7 @@ export const updateCategoryService = async (
   data: Partial<Category>
 ) => {
 
-  const ref = doc(db, COLLECTION, id)
+  const ref = userDoc(COLLECTION, id)
 
   await updateDoc(ref, data)
 }
@@ -64,7 +64,7 @@ export const deleteCategoryService = async (
   id: string
 ) => {
 
-  const ref = doc(db, COLLECTION, id)
+  const ref = userDoc(COLLECTION, id)
 
   await deleteDoc(ref)
 }

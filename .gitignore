@@ -1,3 +1,8 @@
 node_modules
 .env
 dist
+design
+payments-worker/.wrangler
+payments-worker/node_modules
+*service-account*.json
+.dev.vars
