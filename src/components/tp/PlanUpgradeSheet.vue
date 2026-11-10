@@ -75,7 +75,7 @@
 
 <script setup lang="ts">
 import { ref, type Component } from 'vue'
-import { ChartPie, FileText, Inbox, ChartNoAxesColumn, Repeat, ShieldCheck } from 'lucide-vue-next'
+import { ChartPie, FileText, Inbox, ChartNoAxesColumn, MapPin, Repeat, ShieldCheck } from 'lucide-vue-next'
 import TpSheet from './TpSheet.vue'
 import TpButton from './TpButton.vue'
 import PlanPrice from './PlanPrice.vue'
@@ -91,7 +91,8 @@ const benefitIcon: Record<string, Component> = {
   budgets: ChartNoAxesColumn,
   recurring: Repeat,
   statements: FileText,
-  analytics: ChartPie
+  analytics: ChartPie,
+  events: MapPin
 }
 
 const step = ref<'offer' | 'pay'>('offer')

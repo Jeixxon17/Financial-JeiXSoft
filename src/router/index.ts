@@ -14,6 +14,7 @@ const routes: RouteRecordRaw[] = [
   { path: '/paychecks', name: 'Paychecks', component: () => import('@/pages/PaychecksPage.vue'), meta: { title: 'Quincenas' } },
   { path: '/budgets', name: 'Budgets', component: () => import('@/pages/BudgetsPage.vue'), meta: { title: 'Presupuesto y ahorro', pro: 'budgets' } },
   { path: '/analytics', name: 'Analytics', component: () => import('@/pages/AnalyticsPage.vue'), meta: { title: 'Estadísticas', pro: 'analytics' } },
+  { path: '/events', name: 'Events', component: () => import('@/pages/EventsPage.vue'), meta: { title: 'Viajes y eventos', pro: 'events' } },
   { path: '/profile', name: 'Profile', component: () => import('@/pages/ProfilePage.vue'), meta: { title: 'Perfil y ajustes' } },
   // Aquí vuelve Wompi después de pagar el plan Completo
   { path: '/plan', name: 'Plan', component: () => import('@/pages/PlanResultPage.vue'), meta: { title: 'Plan Completo' } },

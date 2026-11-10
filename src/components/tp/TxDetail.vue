@@ -135,6 +135,9 @@ const rows = computed(() => {
     list.push({ label: 'Categoría', value: categoryName.value })
   }
 
+  const event = tx.eventId ? store.events.find(e => e.id === tx.eventId) : undefined
+  if (event) list.push({ label: 'Viaje o evento', value: event.name })
+
   list.push({ label: 'Fecha', value: mediumDate(parseISO(tx.date)) })
   if (tx.paymentMethod && !transfer.value) list.push({ label: 'Medio', value: tx.paymentMethod })
 
@@ -154,7 +157,8 @@ const duplicatePrefill = computed<Partial<Transaction>>(() => ({
   amount: props.tx.amount,
   category: props.tx.category,
   accountId: props.tx.accountId,
-  description: props.tx.description
+  description: props.tx.description,
+  ...(props.tx.eventId ? { eventId: props.tx.eventId } : {})
 }))
 
 const confirming = ref(false)

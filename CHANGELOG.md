@@ -5,6 +5,23 @@ cuando lo hecho se sube a GitHub; mientras no se suba, los cambios se anotan
 en la versión en curso. La versión vive en `package.json` y de ahí la toman
 la app web, la PWA y el APK de Android (se ve en el menú y en la pantalla del PIN).
 
+## 2.2 — 2026-11-09 · Viajes y eventos
+
+### Viajes y eventos (plan Completo)
+- Sección nueva en "Más" (`#/events`): se crea un viaje o evento (ej: "Bogotá")
+  con nombre, ícono, color, fechas y, si se quiere, cuánto se piensa gastar.
+  Muestra cuánto se gastó ahí, los días, el promedio por día, en qué categorías
+  se fue y la lista de gastos. Sirve aparte de las categorías.
+- Mientras está en curso, los gastos nuevos de esas fechas (también los que se
+  confirman desde "Por confirmar") quedan en él solos; en el formulario se puede
+  cambiar o dejar en "Ninguno". Solo cuentan gastos, no ingresos ni transferencias.
+- Al crearlo con fecha pasada, ofrece incluir los gastos ya registrados en esas
+  fechas. "Terminar hoy" lo cierra; eliminarlo no borra los gastos.
+- El Inicio muestra el evento en curso y cuánto lleva. El detalle del
+  movimiento dice a qué evento pertenece.
+- Datos en `users/{uid}/events` y `eventId` en cada movimiento (las reglas ya lo
+  permiten; eliminar la cuenta también los borra).
+
 ## 2.1 — 2026-11-05 · TuPlataAlDia
 
 ### Legal y privacidad

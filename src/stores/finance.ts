@@ -10,7 +10,15 @@ import type {
   RecurringExpense,
   PendingTransaction,
   SavingsGoal,
+  SpendingEvent,
 } from "@/interfaces";
+import {
+  createEventService,
+  deleteEventService,
+  getEventsService,
+  setTransactionsEventService,
+  updateEventService,
+} from "@/services/event.service";
 import {
   createBudgetService,
   deleteBudgetService,
@@ -211,6 +219,7 @@ export const useFinanceStore = defineStore("finance", () => {
     categories: false,
     budgets: false,
     goals: false,
+    events: false,
   });
 
   const accounts = ref<Account[]>([]);
@@ -220,6 +229,7 @@ export const useFinanceStore = defineStore("finance", () => {
   const budgets = ref<Budget[]>([]);
   const recurringExpenses = ref<RecurringExpense[]>([]);
   const savingsGoals = ref<SavingsGoal[]>([]);
+  const events = ref<SpendingEvent[]>([]);
   // Movimientos leídos de notificaciones del celular, esperando confirmación
   const pendingTransactions = ref<PendingTransaction[]>([]);
   const selectedMonth = ref<string>(getCurrentMonth());
@@ -818,6 +828,7 @@ const remaining = computed(() =>
       loadPendingTransactions(),
       loadBudgets(),
       loadSavingsGoals(),
+      loadEvents(),
     ]);
     await migrateCategories(categories.value.length === 0);
     await processRecurringExpenses();
@@ -1058,6 +1069,88 @@ const remaining = computed(() =>
   async function deleteSavingsGoal(id: string) {
     await deleteSavingsGoalService(id);
     await loadSavingsGoals();
+  }
+
+  // =========================================
+  // VIAJES Y EVENTOS
+  // =========================================
+
+  async function loadEvents() {
+    try {
+      events.value = (await getEventsService()).sort((a, b) => b.startDate.localeCompare(a.startDate));
+    } catch (error) {
+      console.error("Error loading events", error);
+    } finally {
+      loaded.events = true;
+    }
+  }
+
+  // Crea el evento. Con `includePast`, también le asigna los gastos que ya
+  // estaban registrados en sus fechas y no tenían evento.
+  async function addEvent(event: Omit<SpendingEvent, "id">, includePast = false) {
+    const id = await createEventService(event);
+    if (includePast) {
+      const ids = transactions.value
+        .filter((t) => !t.eventId && isEventExpense(t) && inEventRange(event, t.date))
+        .map((t) => t.id);
+      if (ids.length) {
+        await setTransactionsEventService(ids, id);
+        await loadTransactions();
+      }
+    }
+    await loadEvents();
+    return id;
+  }
+
+  async function updateEvent(id: string, updates: Partial<SpendingEvent>) {
+    await updateEventService(id, updates);
+    await loadEvents();
+  }
+
+  // Borra el evento; los gastos se quedan, solo dejan de estar en él
+  async function deleteEvent(id: string) {
+    const ids = transactions.value.filter((t) => t.eventId === id).map((t) => t.id);
+    if (ids.length) {
+      await setTransactionsEventService(ids, "");
+      await loadTransactions();
+    }
+    await deleteEventService(id);
+    events.value = events.value.filter((e) => e.id !== id);
+  }
+
+  // Solo los gastos cuentan en un evento (no ingresos ni transferencias)
+  function isEventExpense(t: Pick<Transaction, "type" | "category">) {
+    return t.type === "expense" && t.category !== "transfer";
+  }
+
+  function inEventRange(e: Pick<SpendingEvent, "startDate" | "endDate">, date: string) {
+    return date >= e.startDate && (!e.endDate || date <= e.endDate);
+  }
+
+  const isEventOngoing = (e: SpendingEvent) => !e.closed && (!e.endDate || e.endDate >= todayISO());
+
+  // Evento que se propone para un gasto nuevo de esa fecha: el más reciente
+  // de los que cubren la fecha y siguen en curso
+  function eventForDate(date: string): SpendingEvent | undefined {
+    return events.value.find((e) => isEventOngoing(e) && inEventRange(e, date));
+  }
+
+  // Cuánto se gastó en el evento y en qué
+  function eventSummary(id: string) {
+    const list = transactions.value
+      .filter((t) => t.eventId === id && isEventExpense(t))
+      .sort((a, b) => b.date.localeCompare(a.date));
+    const total = list.reduce((sum, t) => sum + t.amount, 0);
+    const byCategory = new Map<string, number>();
+    list.forEach((t) => byCategory.set(t.category, (byCategory.get(t.category) || 0) + t.amount));
+    return {
+      transactions: list,
+      total,
+      count: list.length,
+      byCategory: [...byCategory.entries()]
+        .map(([categoryId, amount]) => ({ categoryId, amount }))
+        .sort((a, b) => b.amount - a.amount),
+    };
   }
 
   // Ahorro que piden las metas en el mes (para el plan y las quincenas)
@@ -1346,6 +1439,15 @@ const remaining = computed(() =>
     updateSavingsGoal,
     deleteSavingsGoal,
     goalsSavingsFor,
+    // VIAJES Y EVENTOS
+    events,
+    loadEvents,
+    addEvent,
+    updateEvent,
+    deleteEvent,
+    eventForDate,
+    eventSummary,
+    isEventOngoing,
     // PLAN Y ASESOR
     emergencyFund,
     currentPlan,

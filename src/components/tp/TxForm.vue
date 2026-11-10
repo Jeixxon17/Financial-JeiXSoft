@@ -144,6 +144,25 @@
         </label>
       </div>
 
+      <!-- Viaje o evento (plan Completo): el que está en curso viene elegido -->
+      <div v-if="eventOptions.length" class="flex flex-col gap-2">
+        <span :class="fieldLabel">Viaje o evento</span>
+        <div class="flex flex-wrap gap-1.5">
+          <button
+            v-for="opt in eventOptions"
+            :key="opt.id"
+            type="button"
+            class="inline-flex min-h-9 cursor-pointer items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition-colors [&_svg]:size-3.5"
+            :class="form.eventId === opt.id ? 'border-primary bg-primary-soft text-ink' : 'border-line bg-surface-200 text-ink-muted hover:text-ink'"
+            :aria-pressed="form.eventId === opt.id"
+            @click="pickEvent(opt.id)"
+          >
+            <component :is="opt.icon" v-if="opt.icon" :stroke-width="1.75" :style="{ color: opt.color }" aria-hidden="true" />
+            {{ opt.name }}
+          </button>
+        </div>
+      </div>
+
       <label class="flex flex-col gap-1.5">
         <span :class="fieldLabel">Descripción</span>
         <input
@@ -254,6 +273,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import TpSheet from './TpSheet.vue'
 import TpButton from './TpButton.vue'
 import CategoryPicker from './CategoryPicker.vue'
+import { eventIcon } from './eventIcons'
 import { fieldInput, fieldLabel, mediumDate, money, parseISO, plain, shortDate } from './format'
 import { useFinanceStore } from '@/stores/finance'
 import { showAdvice } from '@/services/advisorToast'
@@ -291,7 +311,8 @@ const form = reactive({
   description: initial?.description || '',
   installments: props.transaction?.installments || 1,
   interestRate: props.transaction?.interestRate || 0,
-  foreignCurrency: false
+  foreignCurrency: false,
+  eventId: initial?.eventId || ''
 })
 
 const types: { value: TxType; label: string }[] = [
@@ -384,6 +405,36 @@ const payOptions = computed(() => {
 const fxRate = computed(() => selectedAccount.value?.fxFeeRate || 0)
 const showFx = computed(() => !editing && form.type === 'expense' && fxRate.value > 0)
 const fxFee = computed(() => Math.round(form.amount * fxRate.value) / 100)
+
+// ---------- Viaje o evento ----------
+// Solo gastos. Se ofrecen los que siguen en curso, los que cubren la fecha y el que ya tenga
+const eventTouched = ref(editing || !!initial?.eventId)
+const eventOptions = computed(() => {
+  if (!hasFullPlan.value || form.type !== 'expense' || isTransferLeg || !store.events.length) return []
+  const list = store.events.filter(
+    e => e.id === form.eventId || store.isEventOngoing(e) || (form.date >= e.startDate && (!e.endDate || form.date <= e.endDate))
+  )
+  if (!list.length) return []
+  return [
+    { id: '', name: 'Ninguno', icon: null, color: '' },
+    ...list.map(e => ({ id: e.id, name: e.name, icon: eventIcon(e.icon), color: e.color }))
+  ]
+})
+
+function pickEvent(id: string) {
+  form.eventId = id
+  eventTouched.value = true
+}
+
+// Gasto nuevo: se propone el evento en curso de esa fecha (si no se ha elegido a mano)
+watch(
+  () => [form.date, form.type, store.events.length],
+  () => {
+    if (eventTouched.value) return
+    form.eventId = form.type === 'expense' && hasFullPlan.value ? store.eventForDate(form.date)?.id || '' : ''
+  },
+  { immediate: true }
+)
 
 // ---------- Cuotas ----------
 const quickInstallments = [1, 3, 6, 12, 24, 36]
@@ -487,6 +538,10 @@ async function save() {
       data.installmentAmount = installmentAmount.value
     }
 
+    // Evento: solo en gastos. Al editar, si se quitó, queda vacío
+    const eventId = form.type === 'expense' ? form.eventId : ''
+    if (eventId || props.transaction?.eventId) data.eventId = eventId
+
     const withFxFee = showFx.value && form.foreignCurrency && fxFee.value > 0
     if (withFxFee) data.tags = [...data.tags, 'moneda extranjera']
 
@@ -505,6 +560,7 @@ async function save() {
         paymentMethod: data.paymentMethod,
         tags: ['comisión']
       }
+      if (eventId) fee.eventId = eventId
       if (showInstallments.value) {
         fee.installments = 1
         fee.interestRate = 0

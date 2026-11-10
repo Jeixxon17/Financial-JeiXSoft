@@ -14,7 +14,8 @@ export const USER_COLLECTIONS = [
   'recurringExpenses',
   'pendingTransactions',
   'budgets',
-  'savingsGoals'
+  'savingsGoals',
+  'events'
 ] as const
 
 export function setDataRoot(userId: string | null) {

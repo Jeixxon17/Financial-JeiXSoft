@@ -8,6 +8,7 @@ import {
   CreditCard,
   House,
   Inbox,
+  MapPin,
   Repeat,
   Tags
 } from 'lucide-vue-next'
@@ -33,6 +34,7 @@ export const mainLinks: NavLink[] = [
 // "Más": en escritorio va en el menú lateral, en el celular en una hoja
 export const moreLinks: NavLink[] = [
   { to: '/analytics', label: 'Estadísticas', short: 'Estadísticas', icon: ChartPie, pro: true },
+  { to: '/events', label: 'Viajes y eventos', short: 'Viajes', icon: MapPin, pro: true },
   { to: '/paychecks', label: 'Quincenas', short: 'Quincenas', icon: CalendarDays },
   { to: '/recurring', label: 'Gastos automáticos', short: 'Automáticos', icon: Repeat, pro: true },
   { to: '/categories', label: 'Categorías', short: 'Categorías', icon: Tags },
