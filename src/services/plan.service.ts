@@ -17,7 +17,7 @@ import { authState } from '@/services/auth.service'
 export const PLAN_PRICE = 50_000
 
 // Partes que pide el plan Completo
-export type ProFeature = 'inbox' | 'budgets' | 'recurring' | 'analytics' | 'statements' | 'advisor'
+export type ProFeature = 'inbox' | 'budgets' | 'recurring' | 'analytics' | 'statements' | 'advisor' | 'events'
 
 export const hasFullPlan = computed(() => authState.plan === 'completo')
 
@@ -58,6 +58,11 @@ export const proFeatures: Record<ProFeature, ProFeatureInfo> = {
     title: 'Un asesor que te avisa',
     text: 'Te dice si un gasto se sale de tu plan y qué hacer con tus deudas.',
     points: ['Avisos al registrar gastos', 'Consejos con tus propios datos', 'Y todo lo demás del plan Completo']
+  },
+  events: {
+    title: 'Cuánto gastaste en cada viaje',
+    text: 'Crea un viaje o evento (Bogotá, la boda, el paseo) y sabe cuánto se te fue ahí, sin importar la categoría.',
+    points: ['Los gastos de esos días se le asignan solos', 'Total, promedio por día y en qué se fue', 'Y todo lo demás del plan Completo']
   }
 }
 
@@ -67,7 +72,8 @@ export const planBenefits = [
   { key: 'budgets', title: 'Presupuesto, metas y asesor', text: 'Plan del mes, topes y avisos al gastar' },
   { key: 'recurring', title: 'Gastos automáticos', text: 'Suscripciones que se registran solas' },
   { key: 'statements', title: 'Extractos y cuadrar con el banco', text: 'Sube el PDF y la tarjeta queda igual' },
-  { key: 'analytics', title: 'Estadísticas', text: 'Cómo va tu plata mes a mes' }
+  { key: 'analytics', title: 'Estadísticas', text: 'Cómo va tu plata mes a mes' },
+  { key: 'events', title: 'Viajes y eventos', text: 'Cuánto gastaste en cada viaje o plan' }
 ] as const
 
 // Hoja "Mejora tu plan" (una sola para toda la app, la pinta App.vue)

@@ -141,6 +141,7 @@
       <!-- Movimientos recientes -->
       <div class="flex min-w-0 flex-col gap-4">
         <!-- Celular: el aviso y los pendientes van antes de los movimientos -->
+        <EventBanner class="lg:hidden" />
         <HomeNotice v-if="tip && tipReady" class="lg:hidden" :tip="tip" />
         <TpSkeleton v-else-if="!tipReady" class="block h-[88px] rounded-tile lg:hidden" />
         <RouterLink v-if="pending > 0" to="/inbox" :class="[bannerClass, 'lg:hidden']">
@@ -263,6 +264,7 @@
           </div>
           <TpButton to="/accounts" variant="secondary" block class="mt-2">Ver detalle</TpButton>
         </div>
+        <EventBanner />
         <HomeNotice v-if="tip && tipReady" :tip="tip" />
         <TpSkeleton v-else-if="!tipReady" class="block h-[88px] rounded-tile" />
         <RouterLink v-if="pending > 0" to="/inbox" :class="bannerClass">
@@ -345,6 +347,7 @@ import BankCardFace from '@/components/tp/BankCardFace.vue'
 import BankCardSkeleton from '@/components/tp/BankCardSkeleton.vue'
 import TpSkeleton from '@/components/tp/TpSkeleton.vue'
 import HomeNotice from '@/components/tp/HomeNotice.vue'
+import EventBanner from '@/components/tp/EventBanner.vue'
 import { moreLinks } from '@/components/tp/navigation'
 import { hasFullPlan } from '@/services/plan.service'
 import { bankCardClass } from '@/components/tp/cards'
