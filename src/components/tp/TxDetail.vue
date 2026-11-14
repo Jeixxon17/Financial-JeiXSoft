@@ -157,8 +157,7 @@ const duplicatePrefill = computed<Partial<Transaction>>(() => ({
   amount: props.tx.amount,
   category: props.tx.category,
   accountId: props.tx.accountId,
-  description: props.tx.description,
-  ...(props.tx.eventId ? { eventId: props.tx.eventId } : {})
+  description: props.tx.description
 }))
 
 const confirming = ref(false)

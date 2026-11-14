@@ -73,9 +73,7 @@
         <Trash2 :stroke-width="1.75" aria-hidden="true" />
         Eliminar
       </TpButton>
-      <TpButton variant="secondary" class="flex-1 lg:flex-none" :disabled="busy" @click="toggleEnd">
-        {{ ongoing ? 'Terminar hoy' : 'Seguir en curso' }}
-      </TpButton>
+      <TpButton v-if="ongoing" variant="secondary" class="flex-1 lg:flex-none" :disabled="busy" @click="ending = true">Terminar hoy</TpButton>
       <TpButton class="flex-1 lg:flex-none" @click="emit('edit', event)">
         <Pencil :stroke-width="1.75" aria-hidden="true" />
         Editar
@@ -90,6 +88,18 @@
     :busy="busy"
     @cancel="confirming = false"
     @confirm="remove"
+  />
+
+  <!-- Terminar no tiene vuelta atrás: se confirma antes -->
+  <TpConfirm
+    v-if="ending"
+    :title="`¿Terminar ${event.name}?`"
+    text="Queda cerrado para siempre: los gastos nuevos y los de Por confirmar ya no se podrán agregar a este evento. Lo que ya tiene se conserva."
+    confirm-label="Sí, terminar"
+    busy-label="Terminando…"
+    :busy="busy"
+    @cancel="ending = false"
+    @confirm="finish"
   />
 </template>
 
@@ -143,19 +153,18 @@ const categories = computed(() => {
 const busy = ref(false)
 const confirming = ref(false)
 
-// Terminar: termina hoy (los gastos nuevos ya no se le asignan solos).
-// Seguir en curso: se quita el cierre y, si la fecha final ya pasó, también.
-async function toggleEnd() {
+const ending = ref(false)
+
+// Terminar hoy: se cierra para siempre (no se puede reabrir) y ya no se ofrece
+// en los gastos nuevos ni en Por confirmar
+async function finish() {
   busy.value = true
   try {
     const today = todayISO()
     const e = props.event
-    if (ongoing.value) {
-      const end = !e.endDate || e.endDate > today ? today : e.endDate
-      await store.updateEvent(e.id, { closed: true, endDate: end < e.startDate ? e.startDate : end })
-    } else {
-      await store.updateEvent(e.id, { closed: false, endDate: e.endDate && e.endDate < today ? '' : e.endDate || '' })
-    }
+    const end = !e.endDate || e.endDate > today ? today : e.endDate
+    await store.updateEvent(e.id, { closed: true, endDate: end < e.startDate ? e.startDate : end })
+    ending.value = false
   } finally {
     busy.value = false
   }

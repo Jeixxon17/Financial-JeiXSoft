@@ -407,13 +407,12 @@ const showFx = computed(() => !editing && form.type === 'expense' && fxRate.valu
 const fxFee = computed(() => Math.round(form.amount * fxRate.value) / 100)
 
 // ---------- Viaje o evento ----------
-// Solo gastos. Se ofrecen los que siguen en curso, los que cubren la fecha y el que ya tenga
+// Solo gastos y solo los eventos en curso: uno terminado ya no se ofrece. Si no hay
+// ninguno en curso, el campo no se muestra (al editar se conserva el que ya tenga)
 const eventTouched = ref(editing || !!initial?.eventId)
 const eventOptions = computed(() => {
-  if (!hasFullPlan.value || form.type !== 'expense' || isTransferLeg || !store.events.length) return []
-  const list = store.events.filter(
-    e => e.id === form.eventId || store.isEventOngoing(e) || (form.date >= e.startDate && (!e.endDate || form.date <= e.endDate))
-  )
+  if (!hasFullPlan.value || form.type !== 'expense' || isTransferLeg) return []
+  const list = store.events.filter(e => store.isEventOngoing(e))
   if (!list.length) return []
   return [
     { id: '', name: 'Ninguno', icon: null, color: '' },

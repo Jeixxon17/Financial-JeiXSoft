@@ -5,6 +5,16 @@ cuando lo hecho se sube a GitHub; mientras no se suba, los cambios se anotan
 en la versión en curso. La versión vive en `package.json` y de ahí la toman
 la app web, la PWA y el APK de Android (se ve en el menú y en la pantalla del PIN).
 
+## 2.3 — 2026-11-13 · Terminar eventos
+
+### Viajes y eventos
+- "Terminar hoy" pide confirmación y cierra el evento para siempre: ya no
+  existe "Seguir en curso".
+- Un evento terminado ya no se ofrece al registrar gastos ni al confirmar desde
+  "Por confirmar". Si no queda ninguno en curso, el campo "Viaje o evento"
+  (con "Ninguno") no se muestra. Al editar un gasto viejo se conserva su evento.
+- "Duplicar" un gasto ya no copia el evento (toma el que esté en curso).
+
 ## 2.2 — 2026-11-09 · Viajes y eventos
 
 ### Viajes y eventos (plan Completo)
